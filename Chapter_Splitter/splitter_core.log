@@ -1,0 +1,9 @@
+2025-07-04 00:23:29 | INFO | __main__ | PDF Chapter Splitter started
+2025-07-04 00:23:29 | ERROR | __main__ | Unhandled exception: No module named 'main'
+Traceback (most recent call last):
+  File "/Users/leonbouramia/Pycharm Projects/Chapter_Splitter/Chapter_Splitter/splitter_core.py", line 231, in main
+    from ui_tk import main as gui_workflow
+  File "/Users/leonbouramia/Pycharm Projects/Chapter_Splitter/Chapter_Splitter/ui_tk.py", line 25, in <module>
+    import main as backend
+ModuleNotFoundError: No module named 'main'
+2025-07-04 00:23:29 | INFO | __main__ | PDF Chapter Splitter terminated
