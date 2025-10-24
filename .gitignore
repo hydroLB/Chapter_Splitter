@@ -22,3 +22,28 @@ env/
 .repo/
 .github/workflows/autosnap-lite.yml
 .github/workflows/initseed-heavy.yml
+
+# ---- Added by audit ----
+# OS / tooling
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+.coverage
+.coverage.*
