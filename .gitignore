@@ -22,3 +22,6 @@ env/
 .repo/
 .github/workflows/autosnap-lite.yml
 .github/workflows/initseed-heavy.yml
+.vite/
+coverage/
+target/
