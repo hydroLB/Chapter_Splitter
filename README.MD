@@ -1,37 +1,131 @@
 # PDF Chapter Splitter
 
-Split your PDF into chapters in seconds.
+PDF Chapter Splitter is a focused desktop tool for exporting chapter PDFs with a clean, config driven workflow. It is built to keep the split pipeline independent from the UI so the project can grow without rewrites.
 
-## How to Use
+## Setup
 
-1. Open the app.
-2. Select your PDF file.
-3. Enter the start and end page numbers for each chapter.
-   - Two modes: One mode allows for the page numbers seen in the book, on the sidebar (if using Previews).
-   - The fallback mode utilizes the overall PDFs page numbering, ensuring no matter what you can split up any document. 
-4. Click "Export Chapters"—done!
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.lock
+```
 
-## Requirements
-- Python 3.8+
-- `pypdf` (`pip install pypdf`)
+Development tools and quality gates:
 
----
+```bash
+pip install -r requirements-dev.lock
+pre-commit install
+```
+
+## Run
+
+GUI:
+
+```bash
+chapter-splitter gui
+```
+
+CLI split:
+
+```bash
+chapter-splitter split --pdf path/to/book.pdf --chapters path/to/chapters.toml
+```
+
+Example `chapters.toml`:
+
+```toml
+[[chapters]]
+title = "Intro"
+start_page = 1
+end_page = 4
+
+[[chapters]]
+title = "Chapter 1"
+start_page = 5
+end_page = 18
+```
+
+## Configuration
+
+All tunable behavior lives in `Chapter_Splitter/chapter_splitter/config/settings.toml`. Overrides are supported via a file path:
+
+```bash
+chapter-splitter --config path/to/override.toml gui
+```
+
+Or through an environment variable:
+
+```bash
+export CHAPTER_SPLITTER_CONFIG=path/to/override.toml
+```
+
+Config file reads are time bounded with an environment override:
+
+```bash
+export CHAPTER_SPLITTER_CONFIG_TIMEOUT_SECONDS=5.0
+```
+
+Key sections to know:
+
+- `app` controls title and correlation ID prefix
+- `logging` controls structured JSON output and redaction
+- `io` controls timeouts, output naming, and overwrite policy
+- `ui` controls grid sizing, labels, and dialog text
+- `validation` defines chapter limits and uniqueness rules
+- `performance` sets benchmark budgets
+
+## Testing
+
+Unit, integration, and end to end tests:
+
+```bash
+pytest
+```
+
+Performance baselines and profiling:
+
+```bash
+python scripts/update_benchmarks.py
+python scripts/profile_split.py
+```
+
+## Troubleshooting
+
+- Missing `pypdf`: install with `pip install pypdf==4.2.0`
+- Config errors: check `Chapter_Splitter/chapter_splitter/config/settings.toml` and any overrides
+- Output collisions: set `io.output_overwrite = true` or change `io.output_dir_suffix`
+- UI actions ignored: increase `ui.action_rate_limit_seconds` if the OS is slow
+
+## Architecture Overview
+
+- Config registry and validation live in `Chapter_Splitter/chapter_splitter/config/loader.py` and `Chapter_Splitter/chapter_splitter/config/schema.py`
+- Structured logging, redaction, and correlation IDs are in `Chapter_Splitter/chapter_splitter/observability/logging.py`
+- PDF outline detection is implemented in `Chapter_Splitter/chapter_splitter/pdf/detection/outlines.py`
+- The split pipeline is in `Chapter_Splitter/chapter_splitter/pdf/splitting/splitter.py` and uses strict validation from `Chapter_Splitter/chapter_splitter/core/validation.py`
+- Tkinter workflow and UI widgets are in `Chapter_Splitter/chapter_splitter/ui/tk/workflow.py` and `Chapter_Splitter/chapter_splitter/ui/tk/widgets/chapter_grid.py`
+
+## Implementation Notes
+
+- The config loader merges defaults with overrides and validates every field before use to keep tuning safe and centralized
+- Logging is structured, redacted, and tagged with correlation IDs to make troubleshooting precise
+- The split workflow uses deadlines, retries, and cancellation checks so IO cannot hang indefinitely
+- Performance baselines in `benchmarks/baseline.json` guard the hot paths and are updated with `scripts/update_benchmarks.py`
 
 ## Screenshots
 
-Below are some screenshots to show how the app works:
+![Main window](README_IMAGES/main_screen.png)
 
-<p align="center">
-  <img src="README_IMAGES/main_screen.png" alt="Main Screen" width="600"/>
-  <br>
-  <em>Main screen of PDF Chapter Splitter</em>
-</p>
+![Export flow](README_IMAGES/export_example.png)
 
-<p align="center">
-  <img src="README_IMAGES/export_example.png" alt="Export Example" width="600"/>
-  <br>
-  <em>Exporting chapters from a PDF</em>
-</p>
+## Build and Release
 
+Build:
 
-Questions or problems? [Open an issue](https://github.com/YOUR_REPO_HERE).
+```bash
+python -m build
+```
+
+Release process:
+
+- `CHANGELOG.md` and `RELEASE.md` outline the steps
+- Tags follow the version in `pyproject.toml`
