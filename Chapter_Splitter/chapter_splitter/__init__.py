@@ -1,0 +1,1 @@
+"""Chapter Splitter package."""

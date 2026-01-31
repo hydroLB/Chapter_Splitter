@@ -1,0 +1,79 @@
+# Central configuration for PDF Chapter Splitter.
+# Update this file or provide an override at CHAPTER_SPLITTER_CONFIG.
+
+[app]
+title = "PDF Chapter Splitter"
+environment = "local"
+correlation_id_prefix = "chapter-splitter"
+
+[logging]
+level = "INFO"
+formatter = "json"
+console_enabled = true
+file_enabled = true
+file_path = "splitter.log"
+redact_keys = ["password", "secret", "token", "api_key"]
+redact_values = ["password", "secret", "token", "api_key"]
+
+[io]
+open_viewer = true
+viewer_timeout_seconds = 5.0
+pdf_read_timeout_seconds = 30.0
+pdf_write_timeout_seconds = 30.0
+operation_timeout_seconds = 120.0
+output_dir_suffix = "_chapters"
+output_overwrite = false
+page_offset = 0
+
+[retry]
+max_attempts = 3
+initial_delay_seconds = 0.2
+max_delay_seconds = 2.0
+jitter_ratio = 0.1
+
+[ui]
+window_width = 420
+window_height = 504
+window_offset_x = 900
+window_offset_y = 100
+row_limit = 60
+base_height = 420
+row_height = 36
+height_threshold_rows = 8
+rows_per_column = 15
+column_widths = [410, 700, 1025, 1360]
+header_rows = 2
+grid_columns = 5
+grid_entry_width = 8
+grid_remove_button_width = 2
+grid_padding_x = 2
+grid_padding_y = 2
+grid_frame_padding_x = 10
+grid_frame_padding_y = 10
+grid_header_labels = ["Chapter", "Start", "End", "", ""]
+undo_button_label = "Undo"
+remove_button_label = "-"
+add_button_label = "+ Add Chapter"
+auto_detect_button_label = "Auto Detect Chapters"
+export_button_label = "Export Chapters"
+chapter_title_prefix = "Chapter"
+no_chapters_title = "No Chapters Found"
+no_chapters_message = "This PDF does not contain usable outline metadata."
+error_dialog_title = "Error"
+success_dialog_title = "Success"
+success_dialog_message_template = "Created {count} chapter file(s) in:\\n{output_dir}"
+auto_open_viewer = true
+action_rate_limit_seconds = 0.8
+chapter_window_title = "Define Chapters"
+file_dialog_title = "Select PDF to Split"
+button_row_padding = 2
+button_gap_padding = 8
+export_button_padding = 10
+
+[validation]
+max_chapters = 60
+require_unique_titles = true
+
+[performance]
+benchmark_iterations = 5
+benchmark_budget_seconds = 1.0

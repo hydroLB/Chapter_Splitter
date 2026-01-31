@@ -1,0 +1,9 @@
+pypdf==6.6.0
+bandit==1.7.9
+build==1.2.1
+coverage==7.5.1
+mypy==1.10.0
+pip-audit==2.7.3
+pre-commit==3.7.0
+pytest==8.2.1
+ruff==0.4.4
