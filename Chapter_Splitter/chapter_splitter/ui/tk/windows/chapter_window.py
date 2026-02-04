@@ -4,34 +4,73 @@ from __future__ import annotations
 
 import tkinter as tk
 from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
 from tkinter import ttk
+from tkinter.font import Font
 
 from ....config.schema import UIConfig
 from ....core.errors import UiError, format_error_message
+from ....core.runtime import CancellationToken
 from ..widgets.chapter_grid import ChapterGridFrame
+from ..widgets.pdf_preview.frame import PdfPreviewFrame
+
+
+@dataclass(frozen=True, slots=True)
+class ChapterWindowComponents:
+    """References to the main chapter window widgets.
+
+    Purpose:
+        Provide structured access to the chapter window and its primary controls.
+    Ties To:
+        Returned by build_chapter_window and used by the Tk workflow to wire callbacks.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+
+    window: tk.Toplevel
+    grid: ChapterGridFrame
+    open_pdf_button: ttk.Button
+    add_button: ttk.Button
+    auto_detect_button: ttk.Button
+    export_button: ttk.Button
+    close_button: ttk.Button
+    status_label: ttk.Label
+    pdf_preview: PdfPreviewFrame | None
 
 
 def build_chapter_window(
     root: tk.Tk,
+    pdf_path: Path,
+    total_pages: int,
     page_labels: list[str] | None,
     do_auto_detect: Callable[[], None],
+    token: CancellationToken,
     ui_config: UIConfig,
     location: str,
-) -> tuple[tk.Toplevel, ChapterGridFrame]:
+) -> ChapterWindowComponents:
     """Build the chapter definition window.
 
     Purpose:
-        Create the main chapter entry window and grid widget.
+        Create the main chapter entry window, grid widget, and primary action buttons.
     Ties To:
         Used by the Tkinter workflow when a PDF is selected.
     Inputs:
         - root: Tk root instance.
+        - pdf_path: Selected PDF path displayed in the header.
+        - total_pages: Total page count displayed in the header.
         - page_labels: Optional page labels from the PDF.
         - do_auto_detect: Callback for auto detect button.
         - ui_config: UI configuration.
         - location: Fully qualified module and method name.
     Outputs:
-        - Tuple of the window and the chapter grid frame.
+        - ChapterWindowComponents containing widget references.
     Side Effects:
         Creates Tkinter widgets.
     Raises:
@@ -43,6 +82,12 @@ def build_chapter_window(
         raise UiError(
             format_error_message(error_location, f"Auto detect callback must be callable.{context}")
         )
+    if not isinstance(pdf_path, Path):
+        raise UiError(format_error_message(error_location, f"pdf_path must be a Path.{context}"))
+    if total_pages <= 0:
+        raise UiError(
+            format_error_message(error_location, f"total_pages must be positive.{context}")
+        )
     try:
         chapter_win = tk.Toplevel(root)
         chapter_win.title(ui_config.chapter_window_title)
@@ -50,36 +95,167 @@ def build_chapter_window(
             f"{ui_config.window_width}x{ui_config.window_height}+"
             f"{ui_config.window_offset_x}+{ui_config.window_offset_y}"
         )
-        chapter_win.resizable(False, False)
+        chapter_win.minsize(900 if ui_config.enable_pdf_preview else 520, 520)
+        chapter_win.resizable(True, True)
+        chapter_win.columnconfigure(0, weight=1)
+        chapter_win.rowconfigure(1, weight=1)
 
-        grid_frame = ChapterGridFrame(
-            chapter_win,
-            prefill_chapters=None,
-            page_labels=page_labels,
-            ui_config=ui_config,
-        )
-        grid_frame.pack(
-            fill="both",
-            expand=True,
+        info_frame = ttk.Frame(chapter_win)
+        info_frame.grid(
+            row=0,
+            column=0,
+            sticky="ew",
             padx=ui_config.grid_frame_padding_x,
-            pady=ui_config.grid_frame_padding_y,
+            pady=(ui_config.grid_frame_padding_y, 0),
         )
+        info_frame.columnconfigure(0, weight=1)
+
+        title_font = Font(info_frame)
+        title_font.configure(weight="bold")
+
+        pdf_name_label = ttk.Label(
+            info_frame,
+            text=pdf_path.name,
+            justify="left",
+            font=title_font,
+        )
+        pdf_name_label.grid(row=0, column=0, sticky="w")
+
+        pages_label = ttk.Label(info_frame, text=f"{total_pages} pages", justify="left")
+        pages_label.grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        path_label = ttk.Label(
+            info_frame,
+            text=str(pdf_path),
+            justify="left",
+            wraplength=ui_config.pdf_info_wraplength,
+        )
+        path_label.grid(row=2, column=0, sticky="ew", pady=(4, 0))
+
+        def _update_wrap(_event: tk.Event[tk.Misc]) -> None:
+            """Update the wrap length of the path label when the window resizes.
+
+            Purpose:
+                Keep the PDF path readable by wrapping to the available width.
+            Ties To:
+                Bound to the header frame <Configure> event.
+            Inputs:
+                - _event: Tkinter configure event.
+            Outputs:
+                - None.
+            Side Effects:
+                Updates the label wrap length.
+            Raises:
+                - None.
+            """
+            available = max(200, info_frame.winfo_width() - 140)
+            path_label.configure(wraplength=available)
+
+        info_frame.bind("<Configure>", _update_wrap)
+
+        open_pdf_button = ttk.Button(info_frame, text=ui_config.open_pdf_button_label)
+        open_pdf_button.grid(row=0, column=1, rowspan=3, sticky="ne", padx=(12, 0))
+
+        pdf_preview: PdfPreviewFrame | None = None
+        if ui_config.enable_pdf_preview:
+            main_pane = ttk.PanedWindow(chapter_win, orient="horizontal")
+            main_pane.grid(
+                row=1,
+                column=0,
+                sticky="nsew",
+                padx=ui_config.grid_frame_padding_x,
+                pady=ui_config.grid_frame_padding_y,
+            )
+            pdf_preview = PdfPreviewFrame(
+                main_pane,
+                pdf_path=pdf_path,
+                total_pages=total_pages,
+                ui_config=ui_config,
+                token=token,
+                location=location,
+            )
+            grid_frame = ChapterGridFrame(
+                main_pane,
+                prefill_chapters=None,
+                page_labels=page_labels,
+                ui_config=ui_config,
+            )
+            main_pane.add(pdf_preview, weight=1)
+            main_pane.add(grid_frame, weight=2)
+        else:
+            grid_frame = ChapterGridFrame(
+                chapter_win,
+                prefill_chapters=None,
+                page_labels=page_labels,
+                ui_config=ui_config,
+            )
+            grid_frame.grid(
+                row=1,
+                column=0,
+                sticky="nsew",
+                padx=ui_config.grid_frame_padding_x,
+                pady=ui_config.grid_frame_padding_y,
+            )
 
         btn_row = ttk.Frame(chapter_win)
-        btn_row.pack(pady=ui_config.button_row_padding)
-        ttk.Button(
-            btn_row,
+        btn_row.grid(
+            row=2,
+            column=0,
+            sticky="ew",
+            padx=ui_config.grid_frame_padding_x,
+            pady=(ui_config.button_row_padding, ui_config.export_button_padding),
+        )
+
+        left_actions = ttk.Frame(btn_row)
+        left_actions.pack(side="left")
+        right_actions = ttk.Frame(btn_row)
+        right_actions.pack(side="right")
+
+        add_button = ttk.Button(
+            left_actions,
             text=ui_config.add_button_label,
             command=grid_frame.add_row,
-        ).pack(side="left", padx=(0, ui_config.button_gap_padding))
-        ttk.Button(
-            btn_row,
+        )
+        add_button.pack(side="left", padx=(0, ui_config.button_gap_padding))
+
+        auto_detect_button = ttk.Button(
+            left_actions,
             text=ui_config.auto_detect_button_label,
             command=do_auto_detect,
-        ).pack(side="left")
+        )
+        auto_detect_button.pack(side="left")
+
+        export_button = ttk.Button(right_actions, text=ui_config.export_button_label)
+        export_button.pack(side="left", padx=(0, ui_config.button_gap_padding))
+
+        close_button = ttk.Button(right_actions, text=ui_config.close_button_label)
+        close_button.pack(side="left")
+
+        status_label = ttk.Label(
+            chapter_win,
+            text=ui_config.status_hint,
+            anchor="w",
+        )
+        status_label.grid(
+            row=3,
+            column=0,
+            sticky="ew",
+            padx=ui_config.grid_frame_padding_x,
+            pady=(0, ui_config.grid_frame_padding_y),
+        )
     except tk.TclError as exc:
         raise UiError(
             format_error_message(error_location, f"Unable to build chapter window: {exc}.{context}")
         ) from exc
 
-    return chapter_win, grid_frame
+    return ChapterWindowComponents(
+        window=chapter_win,
+        grid=grid_frame,
+        open_pdf_button=open_pdf_button,
+        add_button=add_button,
+        auto_detect_button=auto_detect_button,
+        export_button=export_button,
+        close_button=close_button,
+        status_label=status_label,
+        pdf_preview=pdf_preview,
+    )

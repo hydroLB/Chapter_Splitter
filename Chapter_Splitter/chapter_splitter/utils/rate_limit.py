@@ -48,7 +48,7 @@ class RateLimiter:
                 )
             )
         self._min_interval_seconds = min_interval_seconds
-        self._last_action_time = 0.0
+        self._last_action_time: float | None = None
 
     def allow(self) -> bool:
         """Return whether a new action is allowed right now.
@@ -67,7 +67,10 @@ class RateLimiter:
             - None.
         """
         now = time.monotonic()
-        if now - self._last_action_time < self._min_interval_seconds:
+        if (
+            self._last_action_time is not None
+            and now - self._last_action_time < self._min_interval_seconds
+        ):
             return False
         self._last_action_time = now
         return True

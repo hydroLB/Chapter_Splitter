@@ -45,3 +45,27 @@ def test_safe_filename_rejects_empty_input() -> None:
     """
     with pytest.raises(ValidationError):
         safe_filename(" ")
+
+
+def test_safe_filename_strips_windows_trailing_chars() -> None:
+    """Verify that Windows-incompatible trailing characters are removed.
+
+    Purpose:
+        Ensure sanitized filenames do not end with a trailing space or period, which are invalid on
+        Windows filesystems.
+    Ties To:
+        Covers chapter_splitter.utils.filenames.safe_filename.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    assert safe_filename("Chapter.") == "Chapter"
+    assert safe_filename("Chapter . ") == "Chapter"
+
+    with pytest.raises(ValidationError):
+        safe_filename("...")

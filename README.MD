@@ -91,18 +91,18 @@ python scripts/profile_split.py
 
 ## Troubleshooting
 
-- Missing `pypdf`: install with `pip install pypdf==4.2.0`
+- Missing `pypdf`: install with `pip install pypdf==6.6.2`
 - Config errors: check `Chapter_Splitter/chapter_splitter/config/settings.toml` and any overrides
 - Output collisions: set `io.output_overwrite = true` or change `io.output_dir_suffix`
 - UI actions ignored: increase `ui.action_rate_limit_seconds` if the OS is slow
 
 ## Architecture Overview
 
-- Config registry and validation live in `Chapter_Splitter/chapter_splitter/config/loader.py` and `Chapter_Splitter/chapter_splitter/config/schema.py`
+- Config loading and deep-merge live in `Chapter_Splitter/chapter_splitter/config/loader/api.py`, and validation lives in `Chapter_Splitter/chapter_splitter/config/schema/settings.py` plus the per-section schema under `Chapter_Splitter/chapter_splitter/config/schema/sections/`
 - Structured logging, redaction, and correlation IDs are in `Chapter_Splitter/chapter_splitter/observability/logging.py`
 - PDF outline detection is implemented in `Chapter_Splitter/chapter_splitter/pdf/detection/outlines.py`
 - The split pipeline is in `Chapter_Splitter/chapter_splitter/pdf/splitting/splitter.py` and uses strict validation from `Chapter_Splitter/chapter_splitter/core/validation.py`
-- Tkinter workflow and UI widgets are in `Chapter_Splitter/chapter_splitter/ui/tk/workflow.py` and `Chapter_Splitter/chapter_splitter/ui/tk/widgets/chapter_grid.py`
+- Tkinter workflow and UI widgets are in `Chapter_Splitter/chapter_splitter/ui/tk/workflow.py` and `Chapter_Splitter/chapter_splitter/ui/tk/widgets/chapter_grid/frame.py`
 
 ## Implementation Notes
 

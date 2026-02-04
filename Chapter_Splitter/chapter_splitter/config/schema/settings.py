@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .sections.app import AppConfig
+from .sections.detection import DetectionConfig
 from .sections.io import IOConfig
 from .sections.logging import LoggingConfig
 from .sections.performance import PerformanceConfig
@@ -36,6 +37,7 @@ class Settings:
         retry: RetryConfig,
         ui: UIConfig,
         validation: ValidationConfig,
+        detection: DetectionConfig,
         performance: PerformanceConfig,
     ) -> None:
         """Initialize the settings registry.
@@ -51,6 +53,7 @@ class Settings:
             - retry: Retry policy configuration.
             - ui: UI configuration.
             - validation: Validation configuration.
+            - detection: Detection configuration.
             - performance: Performance configuration.
         Outputs:
             - None.
@@ -65,6 +68,7 @@ class Settings:
         self.retry = retry
         self.ui = ui
         self.validation = validation
+        self.detection = detection
         self.performance = performance
 
     def validate(self, location: str) -> None:
@@ -89,4 +93,5 @@ class Settings:
         self.retry.validate(location)
         self.ui.validate(location)
         self.validation.validate(location)
+        self.detection.validate(location)
         self.performance.validate(location)

@@ -1,7 +1,8 @@
 from collections.abc import Sequence
 from typing import BinaryIO
 
-class PdfPage: ...
+class PdfPage:
+    def extract_text(self) -> str | None: ...
 
 class PdfReader:
     pages: Sequence[PdfPage]

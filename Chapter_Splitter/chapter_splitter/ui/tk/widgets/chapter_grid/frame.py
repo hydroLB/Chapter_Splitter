@@ -68,13 +68,200 @@ class ChapterGridFrame(tk.Frame):
         self._rows: list[GridRow | None] = []
         self._placeholders: dict[int, ChapterRowValues] = {}
         self._max_row_count = 1
+        self._active_row_index: int | None = None
+        self._int_validate_cmd = (self.register(self._is_valid_int_input), "%P")
+        self._effective_rows_per_column = max(
+            self._ui_config.rows_per_column,
+            self._ui_config.row_limit,
+        )
 
         self._validate_ui_config()
-        if hasattr(self.master, "resizable"):
-            self.master.resizable(False, False)
+        self._build_scroll_container()
         self._build_grid()
         if prefill_chapters:
             self.prefill(prefill_chapters)
+
+    def _build_scroll_container(self) -> None:
+        """Create a scrollable container for the grid contents.
+
+        Purpose:
+            Ensure the chapter grid expands with the window and remains usable for many rows.
+        Ties To:
+            Used by __init__ before building headers and rows.
+        Inputs:
+            - None.
+        Outputs:
+            - None.
+        Side Effects:
+            Creates a canvas, scrollbar, and inner frame for gridded widgets.
+        Raises:
+            - UiError: When the scroll container cannot be created.
+        """
+        error_location = f"{__name__}.ChapterGridFrame._build_scroll_container"
+        try:
+            self.columnconfigure(0, weight=1)
+            self.rowconfigure(0, weight=1)
+
+            container = ttk.Frame(self)
+            container.grid(row=0, column=0, sticky="nsew")
+            container.columnconfigure(0, weight=1)
+            container.rowconfigure(0, weight=1)
+
+            self._canvas = tk.Canvas(container, highlightthickness=0)
+            self._canvas.grid(row=0, column=0, sticky="nsew")
+
+            scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._canvas.yview)
+            scrollbar.grid(row=0, column=1, sticky="ns")
+            self._canvas.configure(yscrollcommand=scrollbar.set)
+
+            self._grid = ttk.Frame(self._canvas)
+            self._grid_window_id = self._canvas.create_window(
+                (0, 0),
+                window=self._grid,
+                anchor="nw",
+            )
+            self._grid.bind("<Configure>", self._on_grid_configure)
+            self._canvas.bind("<Configure>", self._on_canvas_configure)
+
+            self._grid.columnconfigure(0, weight=1)
+            for col in range(1, self._ui_config.grid_columns):
+                self._grid.columnconfigure(col, weight=0)
+
+            self._bind_mousewheel(self._canvas)
+        except tk.TclError as exc:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Unable to create scroll container: {exc}",
+                )
+            ) from exc
+
+    def _on_grid_configure(self, _event: tk.Event[tk.Misc]) -> None:
+        """Update canvas scroll region after grid content changes.
+
+        Purpose:
+            Keep the scrollbar accurate when rows are added, removed, or resized.
+        Ties To:
+            Bound to the inner grid frame <Configure> event.
+        Inputs:
+            - _event: Tkinter configure event.
+        Outputs:
+            - None.
+        Side Effects:
+            Updates the canvas scrollregion.
+        Raises:
+            - None.
+        """
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event: tk.Event[tk.Misc]) -> None:
+        """Keep the inner grid frame width in sync with the canvas width.
+
+        Purpose:
+            Allow the Chapter column to expand and shrink with the window.
+        Ties To:
+            Bound to the canvas <Configure> event.
+        Inputs:
+            - event: Tkinter configure event.
+        Outputs:
+            - None.
+        Side Effects:
+            Updates the canvas window item width.
+        Raises:
+            - None.
+        """
+        self._canvas.itemconfigure(self._grid_window_id, width=event.width)
+
+    def _bind_mousewheel(self, widget: tk.Widget) -> None:
+        """Bind mouse wheel scrolling to the canvas.
+
+        Purpose:
+            Provide expected scrolling behavior across platforms.
+        Ties To:
+            Used by _build_scroll_container.
+        Inputs:
+            - widget: Widget to bind events on.
+        Outputs:
+            - None.
+        Side Effects:
+            Adds event bindings to the widget.
+        Raises:
+            - None.
+        """
+
+        def _on_mousewheel(event: tk.Event[tk.Misc]) -> str:
+            delta = 0
+            if getattr(event, "num", None) == 4:
+                delta = -1
+            elif getattr(event, "num", None) == 5:
+                delta = 1
+            elif getattr(event, "delta", None):
+                raw_delta = int(event.delta)
+                delta = -1 * int(raw_delta / 120) if abs(raw_delta) >= 120 else -1 * raw_delta
+            if delta:
+                self._canvas.yview_scroll(delta, "units")
+            return "break"
+
+        widget.bind("<MouseWheel>", _on_mousewheel)
+        widget.bind("<Button-4>", _on_mousewheel)
+        widget.bind("<Button-5>", _on_mousewheel)
+
+    def has_defined_ranges(self) -> bool:
+        """Check whether the grid contains any user-defined start or end values.
+
+        Summary:
+            Determine whether the user has started defining ranges so destructive actions can warn.
+        Inputs:
+            - None.
+        Outputs:
+            - True when any row has a non-empty start or end field, otherwise False.
+        Side effects:
+            None.
+        Error handling:
+            Raises UiError when Tk field access fails.
+        Ties to other methods:
+            Used by the workflow before auto-detect prefill replaces the grid contents.
+        Why this exists:
+            Auto-detection overwrites the current grid; prompting when the user has input reduces
+            accidental data loss.
+        """
+        error_location = f"{__name__}.ChapterGridFrame.has_defined_ranges"
+        try:
+            for row in self._rows:
+                if row is None:
+                    continue
+                _title_field, start_field, end_field, _button = row
+                if start_field.get().strip() or end_field.get().strip():
+                    return True
+            return False
+        except tk.TclError as exc:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Unable to inspect grid values: {exc}",
+                )
+            ) from exc
+
+    def _is_valid_int_input(self, proposed: str) -> bool:
+        """Validate integer-only entry input for page number fields.
+
+        Summary:
+            Reject non-digit characters while allowing the field to be temporarily empty.
+        Inputs:
+            - proposed: Proposed entry value after the edit.
+        Outputs:
+            - True when the input is empty or all digits, otherwise False.
+        Side effects:
+            None.
+        Error handling:
+            Returns False for invalid values; Tk validate callbacks should not raise.
+        Ties to other methods:
+            Used by _make_row_widgets to validate page number entry fields.
+        Why this exists:
+            Preventing invalid characters makes errors less likely and reduces frustrating export
+            failures.
+        """
+        return proposed == "" or proposed.isdigit()
 
     def add_row(
         self,
@@ -340,6 +527,112 @@ class ChapterGridFrame(tk.Frame):
             )
         return chapters
 
+    def set_active_row_start_at_page(self, page_number: int, location: str) -> None:
+        """Set the active row start value based on a 1-based page number.
+
+        Summary:
+            Allow external UI controls (like the PDF preview panel) to set the active chapter start.
+        Inputs:
+            - page_number: 1-based page number.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the active row start widget value.
+        Error handling:
+            Raises UiError or ValidationError for invalid page numbers or missing rows.
+        Ties to other methods:
+            Used by the embedded PDF preview actions in the workflow.
+        Why this exists:
+            Clicking a page is faster and less error-prone than typing start pages manually.
+        """
+        row_idx = self._ensure_active_row(location)
+        value = self._page_value_for_number(page_number, location)
+        row = self._require_row(row_idx, location)
+        _title, start_field, _end_field, _remove = row
+        self._set_field_value(start_field, value, location)
+
+    def set_active_row_end_at_page(self, page_number: int, location: str) -> None:
+        """Set the active row end value based on a 1-based page number.
+
+        Summary:
+            Allow external UI controls (like the PDF preview panel) to set the active chapter end.
+        Inputs:
+            - page_number: 1-based page number.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the active row end widget value.
+        Error handling:
+            Raises UiError or ValidationError for invalid page numbers or missing rows.
+        Ties to other methods:
+            Used by the embedded PDF preview actions in the workflow.
+        Why this exists:
+            A visual end-marking action reduces off-by-one errors during exports.
+        """
+        row_idx = self._ensure_active_row(location)
+        value = self._page_value_for_number(page_number, location)
+        row = self._require_row(row_idx, location)
+        _title, _start_field, end_field, _remove = row
+        self._set_field_value(end_field, value, location)
+
+    def start_new_chapter_at_page(self, page_number: int, location: str) -> None:
+        """Create a new chapter row starting at the given page.
+
+        Summary:
+            Add a new chapter row with start set to the current page and optionally close the prior
+            chapter by setting its end to the previous page when empty.
+        Inputs:
+            - page_number: 1-based page number.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Adds a new row to the grid and may update the previous row end field.
+        Error handling:
+            Raises UiError or ValidationError when page values cannot be applied.
+        Ties to other methods:
+            Used by the embedded PDF preview "New Chapter Here" action.
+        Why this exists:
+            A single button supports fast labeling workflows where the user clicks through pages and
+            marks chapter boundaries as they go.
+        """
+        error_location = f"{__name__}.ChapterGridFrame.start_new_chapter_at_page"
+        if page_number < 1:
+            raise ValidationError(
+                format_error_message(
+                    error_location, f"page_number must be >= 1 (got {page_number})"
+                )
+            )
+        start_value = self._page_value_for_number(page_number, location)
+
+        previous_end_page = page_number - 1
+        if previous_end_page >= 1:
+            previous_row_idx = self._last_defined_row_index()
+            if previous_row_idx is not None:
+                previous_row = self._require_row(previous_row_idx, location)
+                _title_field, start_field, end_field, _remove = previous_row
+                if not end_field.get().strip():
+                    try:
+                        previous_start_page = self._parse_page_value(start_field.get().strip())
+                    except ValidationError:
+                        previous_start_page = None
+                    if previous_start_page is None or previous_start_page <= previous_end_page:
+                        end_value = self._page_value_for_number(previous_end_page, location)
+                        self._set_field_value(end_field, end_value, location)
+
+        new_row = self.add_row(start_val=start_value)
+        if new_row is None:
+            raise ValidationError(
+                format_error_message(
+                    error_location, f"Unable to add a new row at page {page_number}."
+                )
+            )
+        new_index = self._find_row_index(new_row)
+        self._active_row_index = new_index
+        new_row[0].focus_set()
+
     def prefill(self, chapters: Sequence[ChapterRowValues]) -> None:
         """Replace the grid contents with prefilled chapters.
 
@@ -483,14 +776,19 @@ class ChapterGridFrame(tk.Frame):
         error_location = f"{__name__}.ChapterGridFrame._build_grid"
         try:
             for col, text in enumerate(self._ui_config.grid_header_labels):
-                ttk.Label(self, text=text).grid(
+                ttk.Label(
+                    self._grid,
+                    text=text,
+                    anchor="w" if col == 0 else "center",
+                ).grid(
                     row=0,
                     column=col,
                     padx=self._ui_config.grid_padding_x,
                     pady=self._ui_config.grid_padding_y,
+                    sticky="ew",
                 )
             for spacer_row in range(1, self._ui_config.header_rows):
-                ttk.Label(self, text="").grid(
+                ttk.Label(self._grid, text="").grid(
                     row=spacer_row,
                     column=0,
                     columnspan=self._ui_config.grid_columns,
@@ -562,6 +860,13 @@ class ChapterGridFrame(tk.Frame):
         if not hasattr(self.master, "geometry"):
             return
 
+        if hasattr(self.master, "resizable"):
+            try:
+                if self.master.resizable() != (False, False):
+                    return
+            except tk.TclError:
+                return
+
         error_location = f"{__name__}.ChapterGridFrame._maybe_resize"
         try:
             visible_rows = len([row for row in self._rows if row is not None])
@@ -604,19 +909,52 @@ class ChapterGridFrame(tk.Frame):
         """
         error_location = f"{__name__}.ChapterGridFrame._make_row_widgets"
         try:
-            title_entry = ttk.Entry(self, width=self._ui_config.grid_entry_width)
-            start_entry = ttk.Entry(self, width=self._ui_config.grid_entry_width)
-            end_entry = ttk.Entry(self, width=self._ui_config.grid_entry_width)
+            title_entry = ttk.Entry(self._grid)
+            start_entry: tk.Entry
+            end_entry: tk.Entry
+            if self._page_labels:
+                start_entry = ttk.Combobox(
+                    self._grid,
+                    width=self._ui_config.grid_entry_width,
+                    values=tuple(self._page_labels),
+                    state="readonly",
+                )
+                end_entry = ttk.Combobox(
+                    self._grid,
+                    width=self._ui_config.grid_entry_width,
+                    values=tuple(self._page_labels),
+                    state="readonly",
+                )
+            else:
+                start_entry = ttk.Entry(
+                    self._grid,
+                    width=self._ui_config.grid_entry_width,
+                    validate="key",
+                    validatecommand=self._int_validate_cmd,
+                )
+                end_entry = ttk.Entry(
+                    self._grid,
+                    width=self._ui_config.grid_entry_width,
+                    validate="key",
+                    validatecommand=self._int_validate_cmd,
+                )
             if title:
                 title_entry.insert(0, title)
             if start_val:
-                start_entry.insert(0, start_val)
+                if isinstance(start_entry, ttk.Combobox):
+                    start_entry.set(start_val)
+                else:
+                    start_entry.insert(0, start_val)
             if end_val:
-                end_entry.insert(0, end_val)
+                if isinstance(end_entry, ttk.Combobox):
+                    end_entry.set(end_val)
+                else:
+                    end_entry.insert(0, end_val)
             remove_button = ttk.Button(
-                self,
+                self._grid,
                 text=self._ui_config.remove_button_label,
                 width=self._ui_config.grid_remove_button_width,
+                takefocus=False,
             )
             return title_entry, start_entry, end_entry, remove_button
         except tk.TclError as exc:
@@ -648,7 +986,7 @@ class ChapterGridFrame(tk.Frame):
         try:
             base_col, grid_row = grid_position(
                 idx,
-                rows_per_column=self._ui_config.rows_per_column,
+                rows_per_column=self._effective_rows_per_column,
                 header_rows=self._ui_config.header_rows,
                 grid_columns=self._ui_config.grid_columns,
             )
@@ -675,7 +1013,11 @@ class ChapterGridFrame(tk.Frame):
                     """
                     self.undo_remove(vals, undo_idx)
 
-                ttk.Button(self, text=self._ui_config.undo_button_label, command=do_undo).grid(
+                ttk.Button(
+                    self._grid,
+                    text=self._ui_config.undo_button_label,
+                    command=do_undo,
+                ).grid(
                     row=grid_row,
                     column=base_col,
                     columnspan=self._ui_config.grid_columns,
@@ -695,23 +1037,50 @@ class ChapterGridFrame(tk.Frame):
             title_entry.grid(
                 row=grid_row,
                 column=base_col,
-                sticky="w",
-                padx=self._ui_config.grid_padding_x,
+                sticky="ew",
+                padx=(self._ui_config.grid_padding_x, self._ui_config.grid_padding_x + 2),
                 pady=self._ui_config.grid_padding_y,
             )
             start_entry.grid(
                 row=grid_row,
                 column=base_col + 1,
-                padx=self._ui_config.grid_padding_x,
+                padx=(0, self._ui_config.grid_padding_x),
                 pady=self._ui_config.grid_padding_y,
             )
             end_entry.grid(
                 row=grid_row,
                 column=base_col + 2,
-                padx=self._ui_config.grid_padding_x,
+                padx=(0, self._ui_config.grid_padding_x),
                 pady=self._ui_config.grid_padding_y,
             )
             remove_col = base_col + self._ui_config.grid_columns - 1
+
+            def _focus(target: tk.Entry) -> str:
+                target.focus_set()
+                return "break"
+
+            def _advance_from_end(row_idx: int = idx) -> str:
+                next_idx = row_idx + 1
+                if next_idx < len(self._rows):
+                    next_row = self._rows[next_idx]
+                    if next_row is not None:
+                        next_row[0].focus_set()
+                    return "break"
+                new_row = self.add_row(insert_idx=next_idx)
+                if new_row is not None:
+                    new_row[0].focus_set()
+                return "break"
+
+            title_entry.bind("<Return>", lambda _event: _focus(start_entry))
+            start_entry.bind("<Return>", lambda _event: _focus(end_entry))
+            end_entry.bind("<Return>", lambda _event: _advance_from_end())
+
+            def _mark_active(_event: tk.Event[tk.Misc], row_idx: int = idx) -> None:
+                self._active_row_index = row_idx
+
+            title_entry.bind("<FocusIn>", _mark_active, add="+")
+            start_entry.bind("<FocusIn>", _mark_active, add="+")
+            end_entry.bind("<FocusIn>", _mark_active, add="+")
 
             def do_remove(remove_idx: int = idx) -> None:
                 """Remove the current row when the remove button is clicked.
@@ -740,12 +1109,121 @@ class ChapterGridFrame(tk.Frame):
                 column=remove_col,
                 padx=self._ui_config.grid_padding_x,
                 pady=self._ui_config.grid_padding_y,
+                sticky="e",
             )
         except tk.TclError as exc:
             raise UiError(
                 format_error_message(
                     error_location,
                     f"Unable to render grid row: {exc}",
+                )
+            ) from exc
+
+    def _require_row(self, idx: int, location: str) -> GridRow:
+        error_location = f"{__name__}.ChapterGridFrame._require_row"
+        context = f" Context: {location}." if location else ""
+        if idx < 0 or idx >= len(self._rows):
+            raise UiError(
+                format_error_message(error_location, f"Row index out of range: {idx}.{context}")
+            )
+        row = self._rows[idx]
+        if row is None:
+            raise UiError(format_error_message(error_location, f"Row {idx} is empty.{context}"))
+        return row
+
+    def _ensure_active_row(self, location: str) -> int:
+        error_location = f"{__name__}.ChapterGridFrame._ensure_active_row"
+        context = f" Context: {location}." if location else ""
+        if (
+            self._active_row_index is not None
+            and 0 <= self._active_row_index < len(self._rows)
+            and self._rows[self._active_row_index] is not None
+        ):
+            return self._active_row_index
+        for idx, row in enumerate(self._rows):
+            if row is not None:
+                self._active_row_index = idx
+                return idx
+        new_row = self.add_row()
+        if new_row is None:
+            raise UiError(format_error_message(error_location, f"Unable to create a row.{context}"))
+        idx = self._find_row_index(new_row)
+        self._active_row_index = idx
+        return idx
+
+    def _last_defined_row_index(self) -> int | None:
+        for idx in range(len(self._rows) - 1, -1, -1):
+            if self._rows[idx] is not None:
+                return idx
+        return None
+
+    def _find_row_index(self, widgets: GridRow) -> int:
+        for idx, row in enumerate(self._rows):
+            if row is widgets:
+                return idx
+        # Fallback for cases where identity matching fails (should not happen in practice).
+        for idx, row in enumerate(self._rows):
+            if row is None:
+                continue
+            if all(a is b for a, b in zip(row, widgets, strict=False)):
+                return idx
+        return max(0, len(self._rows) - 1)
+
+    def _page_value_for_number(self, page_number: int, location: str) -> str:
+        error_location = f"{__name__}.ChapterGridFrame._page_value_for_number"
+        context = f" Context: {location}." if location else ""
+        if page_number < 1:
+            raise ValidationError(
+                format_error_message(error_location, f"Page numbers must be >= 1.{context}")
+            )
+        if self._page_labels is not None:
+            if page_number > len(self._page_labels):
+                raise ValidationError(
+                    format_error_message(
+                        error_location,
+                        f"Page number {page_number} exceeds available page labels.{context}",
+                    )
+                )
+            return self._page_labels[page_number - 1]
+        return str(page_number)
+
+    def _set_field_value(self, field: tk.Entry, value: str, location: str) -> None:
+        error_location = f"{__name__}.ChapterGridFrame._set_field_value"
+        context = f" Context: {location}." if location else ""
+        try:
+            if isinstance(field, ttk.Combobox):
+                field.set(value)
+                return
+            field.delete(0, "end")
+            field.insert(0, value)
+        except tk.TclError as exc:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Unable to set field value.{context}",
+                )
+            ) from exc
+
+    def _parse_page_value(self, value: str) -> int | None:
+        error_location = f"{__name__}.ChapterGridFrame._parse_page_value"
+        if not value.strip():
+            return None
+        if self._page_labels is not None:
+            if value not in self._page_labels:
+                raise ValidationError(
+                    format_error_message(
+                        error_location,
+                        f"Unknown page label: {value}",
+                    )
+                )
+            return self._page_labels.index(value) + 1
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValidationError(
+                format_error_message(
+                    error_location,
+                    f"Page value must be an integer: {value}",
                 )
             ) from exc
 
@@ -767,7 +1245,7 @@ class ChapterGridFrame(tk.Frame):
         """
         error_location = f"{__name__}.ChapterGridFrame._clear_transient_widgets"
         try:
-            for widget in self.grid_slaves():
+            for widget in self._grid.grid_slaves():
                 grid_info = widget.grid_info()
                 row_index = int(grid_info.get("row", -1))
                 col_index = int(grid_info.get("column", -1))

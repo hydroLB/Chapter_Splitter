@@ -37,7 +37,7 @@ def safe_filename(name: str) -> str:
             )
         )
     invalid_chars = r"<>:\"/|?*"
-    sanitized = "".join("_" if c in invalid_chars else c for c in cleaned).strip()
+    sanitized = "".join("_" if c in invalid_chars else c for c in cleaned).strip().rstrip(" .")
     if not sanitized:
         raise ValidationError(
             format_error_message(

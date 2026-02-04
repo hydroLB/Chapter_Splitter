@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 
 from ..core.errors import CancellationError, format_error_message
@@ -40,7 +41,7 @@ class Deadline:
         Raises:
             - CancellationError: When timeout_seconds is not positive.
         """
-        if timeout_seconds <= 0:
+        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
             raise CancellationError(
                 format_error_message(
                     "chapter_splitter.utils.timing.Deadline.__init__",

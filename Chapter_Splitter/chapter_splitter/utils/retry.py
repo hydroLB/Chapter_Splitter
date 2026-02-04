@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import secrets
 import time
 from collections.abc import Callable
@@ -53,6 +54,34 @@ def retry_with_backoff(
         raise IoError(
             format_error_message(error_location, f"Retry attempts must be at least 1.{context}")
         )
+    if not math.isfinite(initial_delay_seconds) or initial_delay_seconds < 0:
+        raise IoError(
+            format_error_message(
+                error_location,
+                f"Initial delay must be finite and non negative.{context}",
+            )
+        )
+    if not math.isfinite(max_delay_seconds) or max_delay_seconds < 0:
+        raise IoError(
+            format_error_message(
+                error_location,
+                f"Max delay must be finite and non negative.{context}",
+            )
+        )
+    if max_delay_seconds < initial_delay_seconds:
+        raise IoError(
+            format_error_message(
+                error_location,
+                f"Max delay must be >= initial delay.{context}",
+            )
+        )
+    if not math.isfinite(jitter_ratio) or not 0 <= jitter_ratio <= 1:
+        raise IoError(
+            format_error_message(
+                error_location,
+                f"Jitter ratio must be finite and between 0 and 1.{context}",
+            )
+        )
     delay = max(0.0, initial_delay_seconds)
     for attempt in range(1, max_attempts + 1):
         if token is not None:
@@ -71,7 +100,7 @@ def retry_with_backoff(
                 on_retry(attempt, exc)
             jitter_unit = secrets.randbelow(1_000_000) / 1_000_000
             jitter = delay * jitter_ratio * jitter_unit
-            sleep_for = min(max_delay_seconds, delay + jitter)
+            sleep_for = max(0.0, min(max_delay_seconds, delay + jitter))
             if token is not None:
                 token.check(location)
             time.sleep(sleep_for)

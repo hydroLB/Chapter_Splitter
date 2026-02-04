@@ -7,6 +7,7 @@ easy to navigate, modify, and debug.
 from __future__ import annotations
 
 from .sections.app import AppConfig
+from .sections.detection import DetectionConfig
 from .sections.io import IOConfig
 from .sections.logging import LoggingConfig
 from .sections.performance import PerformanceConfig
@@ -17,6 +18,7 @@ from .settings import Settings
 
 __all__ = [
     "AppConfig",
+    "DetectionConfig",
     "IOConfig",
     "LoggingConfig",
     "PerformanceConfig",
