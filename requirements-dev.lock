@@ -1,4 +1,4 @@
-pypdf==6.6.0
+pypdf==6.6.2
 bandit==1.7.9
 build==1.2.1
 coverage==7.5.1

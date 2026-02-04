@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$ROOT_DIR/.venv"
+PYTHON_BIN="$VENV_DIR/bin/python"
+REQUIREMENTS_LOCK="$ROOT_DIR/requirements.lock"
+
+MODE="${CHAPTER_SPLITTER_MODE:-gui}"
+CONFIG_PATH="${CHAPTER_SPLITTER_CONFIG_PATH:-}"
+PDF_PATH="${PDF_PATH:-}"
+CHAPTERS_PATH="${CHAPTERS_PATH:-}"
+
+if [[ ! -x "$PYTHON_BIN" ]]; then
+  echo "start: missing venv python at $PYTHON_BIN" >&2
+  echo "start: create it with: python3 -m venv .venv" >&2
+  exit 1
+fi
+
+if [[ ! -f "$REQUIREMENTS_LOCK" ]]; then
+  echo "start: missing requirements lockfile at $REQUIREMENTS_LOCK" >&2
+  exit 1
+fi
+
+REQUIRED_PYPDF_LINE="$(grep -E '^pypdf==' "$REQUIREMENTS_LOCK" | head -n 1 || true)"
+if [[ -z "$REQUIRED_PYPDF_LINE" ]]; then
+  echo "start: requirements.lock must contain a pinned pypdf version (expected a line like pypdf==X.Y.Z)" >&2
+  exit 1
+fi
+REQUIRED_PYPDF_VERSION="${REQUIRED_PYPDF_LINE#pypdf==}"
+
+if ! CHAPTER_SPLITTER_REQUIRED_PYPDF_VERSION="$REQUIRED_PYPDF_VERSION" \
+  "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
+import os
+import sys
+
+required = os.environ.get("CHAPTER_SPLITTER_REQUIRED_PYPDF_VERSION")
+if not required:
+    raise RuntimeError("Missing CHAPTER_SPLITTER_REQUIRED_PYPDF_VERSION")
+
+try:
+    import pypdf  # type: ignore[import-not-found]
+except Exception:
+    sys.exit(1)
+
+sys.exit(0 if getattr(pypdf, "__version__", "") == required else 1)
+PY
+then
+  echo "start: installing runtime dependencies from requirements.lock" >&2
+  "$PYTHON_BIN" -m pip install -r "$REQUIREMENTS_LOCK"
+fi
+
+if [[ -n "$CONFIG_PATH" && ! -f "$CONFIG_PATH" ]]; then
+  echo "start: CHAPTER_SPLITTER_CONFIG_PATH points to a missing file: $CONFIG_PATH" >&2
+  exit 1
+fi
+
+# Run without requiring the console-script to be installed into the venv.
+if [[ "$MODE" == "gui" ]]; then
+  PYTHONPATH="$ROOT_DIR/Chapter_Splitter${PYTHONPATH:+:$PYTHONPATH}" \
+    "$PYTHON_BIN" -m chapter_splitter ${CONFIG_PATH:+--config "$CONFIG_PATH"} gui
+  exit 0
+fi
+
+if [[ "$MODE" == "split" ]]; then
+  if [[ -z "$PDF_PATH" || -z "$CHAPTERS_PATH" ]]; then
+    echo "start: split mode requires PDF_PATH and CHAPTERS_PATH env vars." >&2
+    echo "start: example: CHAPTER_SPLITTER_MODE=split PDF_PATH=/path/book.pdf CHAPTERS_PATH=/path/chapters.toml ./start" >&2
+    exit 2
+  fi
+  if [[ ! -f "$PDF_PATH" ]]; then
+    echo "start: PDF file not found: $PDF_PATH" >&2
+    exit 2
+  fi
+  if [[ ! -f "$CHAPTERS_PATH" ]]; then
+    echo "start: chapters file not found: $CHAPTERS_PATH" >&2
+    exit 2
+  fi
+
+  PYTHONPATH="$ROOT_DIR/Chapter_Splitter${PYTHONPATH:+:$PYTHONPATH}" \
+    "$PYTHON_BIN" -m chapter_splitter ${CONFIG_PATH:+--config "$CONFIG_PATH"} split --pdf "$PDF_PATH" --chapters "$CHAPTERS_PATH"
+  exit 0
+fi
+
+echo "start: unknown CHAPTER_SPLITTER_MODE: $MODE (expected: gui or split)" >&2
+exit 2

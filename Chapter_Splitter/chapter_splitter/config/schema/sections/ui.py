@@ -30,6 +30,10 @@ class UIConfig:
         window_height: int,
         window_offset_x: int,
         window_offset_y: int,
+        pdf_info_template: str,
+        pdf_info_wraplength: int,
+        open_pdf_button_label: str,
+        close_button_label: str,
         row_limit: int,
         base_height: int,
         row_height: int,
@@ -63,6 +67,18 @@ class UIConfig:
         button_row_padding: int,
         button_gap_padding: int,
         export_button_padding: int,
+        confirm_auto_detect_overwrite: bool,
+        confirm_auto_detect_overwrite_title: str,
+        confirm_auto_detect_overwrite_message: str,
+        prompt_open_output_dir_after_export: bool,
+        open_output_dir_prompt_title: str,
+        open_output_dir_prompt_message_template: str,
+        enable_keyboard_shortcuts: bool,
+        status_hint: str,
+        enable_pdf_preview: bool,
+        pdf_preview_zoom: float,
+        pdf_preview_cache_entries: int,
+        pdf_preview_render_timeout_seconds: float,
     ) -> None:
         """Initialize UI configuration.
 
@@ -75,6 +91,10 @@ class UIConfig:
             - window_height: Default window height.
             - window_offset_x: Screen offset on the X axis.
             - window_offset_y: Screen offset on the Y axis.
+            - pdf_info_template: Template string for the PDF info header.
+            - pdf_info_wraplength: Wrap length for the PDF info header label.
+            - open_pdf_button_label: Label for the open PDF button.
+            - close_button_label: Label for the close window button.
             - row_limit: Maximum number of chapter rows.
             - base_height: Base height for the window.
             - row_height: Height increment per row.
@@ -108,6 +128,18 @@ class UIConfig:
             - button_row_padding: Padding for the action button row.
             - button_gap_padding: Horizontal gap between buttons.
             - export_button_padding: Vertical padding for the export button.
+            - confirm_auto_detect_overwrite: Whether auto detect confirms before replacing the grid.
+            - confirm_auto_detect_overwrite_title: Title for the overwrite confirmation.
+            - confirm_auto_detect_overwrite_message: Message for the overwrite confirmation.
+            - prompt_open_output_dir_after_export: Whether to prompt to open the output folder.
+            - open_output_dir_prompt_title: Title for the open output folder prompt.
+            - open_output_dir_prompt_message_template: Template for the prompt message.
+            - enable_keyboard_shortcuts: Whether the chapter window binds keyboard shortcuts.
+            - status_hint: Status bar hint displayed at the bottom of the window.
+            - enable_pdf_preview: Whether the chapter window shows an embedded PDF preview panel.
+            - pdf_preview_zoom: Render zoom factor for the embedded preview.
+            - pdf_preview_cache_entries: Maximum number of rendered pages to cache in memory.
+            - pdf_preview_render_timeout_seconds: Time budget for rendering a single preview page.
         Outputs:
             - None.
         Side Effects:
@@ -119,6 +151,10 @@ class UIConfig:
         self.window_height = window_height
         self.window_offset_x = window_offset_x
         self.window_offset_y = window_offset_y
+        self.pdf_info_template = pdf_info_template
+        self.pdf_info_wraplength = pdf_info_wraplength
+        self.open_pdf_button_label = open_pdf_button_label
+        self.close_button_label = close_button_label
         self.row_limit = row_limit
         self.base_height = base_height
         self.row_height = row_height
@@ -152,6 +188,18 @@ class UIConfig:
         self.button_row_padding = button_row_padding
         self.button_gap_padding = button_gap_padding
         self.export_button_padding = export_button_padding
+        self.confirm_auto_detect_overwrite = confirm_auto_detect_overwrite
+        self.confirm_auto_detect_overwrite_title = confirm_auto_detect_overwrite_title
+        self.confirm_auto_detect_overwrite_message = confirm_auto_detect_overwrite_message
+        self.prompt_open_output_dir_after_export = prompt_open_output_dir_after_export
+        self.open_output_dir_prompt_title = open_output_dir_prompt_title
+        self.open_output_dir_prompt_message_template = open_output_dir_prompt_message_template
+        self.enable_keyboard_shortcuts = enable_keyboard_shortcuts
+        self.status_hint = status_hint
+        self.enable_pdf_preview = enable_pdf_preview
+        self.pdf_preview_zoom = pdf_preview_zoom
+        self.pdf_preview_cache_entries = pdf_preview_cache_entries
+        self.pdf_preview_render_timeout_seconds = pdf_preview_render_timeout_seconds
 
     def validate(self, location: str) -> None:
         """Validate UI configuration.
@@ -176,6 +224,34 @@ class UIConfig:
                 format_error_message(
                     error_location,
                     f"ui.window_width and ui.window_height must be positive.{context}",
+                )
+            )
+        if not self.pdf_info_template.strip():
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_info_template must be non empty.{context}",
+                )
+            )
+        if self.pdf_info_wraplength <= 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_info_wraplength must be positive.{context}",
+                )
+            )
+        if not self.open_pdf_button_label.strip():
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.open_pdf_button_label must be non empty.{context}",
+                )
+            )
+        if not self.close_button_label.strip():
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.close_button_label must be non empty.{context}",
                 )
             )
         if self.row_limit < 1:
@@ -382,5 +458,63 @@ class UIConfig:
                 format_error_message(
                     error_location,
                     f"ui.export_button_padding must be non negative.{context}",
+                )
+            )
+        if self.confirm_auto_detect_overwrite:
+            if not self.confirm_auto_detect_overwrite_title.strip():
+                raise ConfigurationError(
+                    format_error_message(
+                        error_location,
+                        f"ui.confirm_auto_detect_overwrite_title must be non empty.{context}",
+                    )
+                )
+            if not self.confirm_auto_detect_overwrite_message.strip():
+                raise ConfigurationError(
+                    format_error_message(
+                        error_location,
+                        f"ui.confirm_auto_detect_overwrite_message must be non empty.{context}",
+                    )
+                )
+        if self.prompt_open_output_dir_after_export:
+            if not self.open_output_dir_prompt_title.strip():
+                raise ConfigurationError(
+                    format_error_message(
+                        error_location,
+                        f"ui.open_output_dir_prompt_title must be non empty.{context}",
+                    )
+                )
+            if not self.open_output_dir_prompt_message_template.strip():
+                raise ConfigurationError(
+                    format_error_message(
+                        error_location,
+                        f"ui.open_output_dir_prompt_message_template must be non empty.{context}",
+                    )
+                )
+        if not self.status_hint.strip():
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.status_hint must be non empty.{context}",
+                )
+            )
+        if self.pdf_preview_zoom <= 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_preview_zoom must be positive.{context}",
+                )
+            )
+        if self.pdf_preview_cache_entries < 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_preview_cache_entries must be non negative.{context}",
+                )
+            )
+        if self.pdf_preview_render_timeout_seconds <= 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    "ui.pdf_preview_render_timeout_seconds must be positive." f"{context}",
                 )
             )

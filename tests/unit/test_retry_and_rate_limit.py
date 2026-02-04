@@ -125,6 +125,47 @@ def test_retry_with_backoff_validates_attempt_count() -> None:
         )
 
 
+def test_retry_with_backoff_rejects_invalid_delay_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify invalid delay bounds are rejected with a stable IoError.
+
+    Purpose:
+        Prevent invalid retry configuration from failing later with low-signal exceptions.
+    Ties To:
+        Covers chapter_splitter.utils.retry.retry_with_backoff.
+    Inputs:
+        - monkeypatch: Pytest monkeypatch fixture.
+    Outputs:
+        - None.
+    Side Effects:
+        Patches time.sleep for determinism.
+    Raises:
+        - None.
+    """
+    sleeps: list[float] = []
+
+    def _sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        if seconds < 0:
+            raise ValueError(f"sleep length must be non-negative, got {seconds}")
+
+    monkeypatch.setattr(time, "sleep", _sleep)
+
+    def action() -> None:
+        raise ValueError("always")
+
+    with pytest.raises(IoError):
+        retry_with_backoff(
+            action=action,
+            exceptions=(ValueError,),
+            max_attempts=2,
+            initial_delay_seconds=0.1,
+            max_delay_seconds=-1.0,
+            jitter_ratio=0.0,
+            location="tests.unit.test_retry_and_rate_limit",
+        )
+    assert not sleeps
+
+
 def test_retry_with_backoff_respects_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify cancellation stops the retry loop.
 
@@ -201,3 +242,27 @@ def test_rate_limiter_rejects_negative_interval() -> None:
     """
     with pytest.raises(ValidationError):
         RateLimiter(-1.0)
+
+
+def test_rate_limiter_allows_first_action_at_time_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify the first action is allowed even when monotonic starts at zero.
+
+    Purpose:
+        Ensure the rate limiter does not mistakenly block the initial action on platforms where
+        time.monotonic() can return 0.0 at process start.
+    Ties To:
+        Covers chapter_splitter.utils.rate_limit.RateLimiter.allow.
+    Inputs:
+        - monkeypatch: Pytest monkeypatch fixture.
+    Outputs:
+        - None.
+    Side Effects:
+        Patches time.monotonic for determinism.
+    Raises:
+        - None.
+    """
+    monkeypatch.setattr(time, "monotonic", lambda: 0.0)
+    limiter = RateLimiter(1.0)
+    assert limiter.allow() is True

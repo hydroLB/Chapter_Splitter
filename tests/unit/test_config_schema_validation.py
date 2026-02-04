@@ -9,6 +9,7 @@ import pytest
 
 from chapter_splitter.config.schema import (
     AppConfig,
+    DetectionConfig,
     IOConfig,
     LoggingConfig,
     PerformanceConfig,
@@ -65,12 +66,30 @@ def _valid_performance() -> PerformanceConfig:
     return PerformanceConfig(benchmark_iterations=3, benchmark_budget_seconds=0.5)
 
 
+def _valid_detection() -> DetectionConfig:
+    return DetectionConfig(
+        enable_toc_fallback=True,
+        toc_scan_max_pages=3,
+        toc_entry_regexes=(
+            r"^(?P<title>.+?)\s+\.\.{2,}\s*(?P<page>\d+)\s*$",
+            r"^(?P<title>.+?)\s+(?P<page>\d+)\s*$",
+        ),
+        toc_ignore_title_regexes=(r"(?i)^(table of contents|contents)$",),
+        toc_min_entries=2,
+        toc_max_entries=100,
+    )
+
+
 def _valid_ui() -> UIConfig:
     return UIConfig(
         window_width=800,
         window_height=600,
         window_offset_x=10,
         window_offset_y=10,
+        pdf_info_template="PDF: {pdf} ({pages})",
+        pdf_info_wraplength=200,
+        open_pdf_button_label="Open PDF",
+        close_button_label="Close",
         row_limit=10,
         base_height=100,
         row_height=10,
@@ -104,6 +123,18 @@ def _valid_ui() -> UIConfig:
         button_row_padding=0,
         button_gap_padding=0,
         export_button_padding=0,
+        confirm_auto_detect_overwrite=True,
+        confirm_auto_detect_overwrite_title="Replace?",
+        confirm_auto_detect_overwrite_message="Replace.",
+        prompt_open_output_dir_after_export=True,
+        open_output_dir_prompt_title="Done",
+        open_output_dir_prompt_message_template="{count} {output_dir}",
+        enable_keyboard_shortcuts=True,
+        status_hint="hint",
+        enable_pdf_preview=False,
+        pdf_preview_zoom=1.0,
+        pdf_preview_cache_entries=4,
+        pdf_preview_render_timeout_seconds=1.0,
     )
 
 
@@ -130,6 +161,7 @@ def test_schema_validates_happy_path(tmp_path: Path) -> None:
     _valid_validation().validate("tests.unit.test_config_schema_validation")
     _valid_performance().validate("tests.unit.test_config_schema_validation")
     _valid_ui().validate("tests.unit.test_config_schema_validation")
+    _valid_detection().validate("tests.unit.test_config_schema_validation")
 
 
 def test_ui_config_validation_catches_all_key_invariants() -> None:
