@@ -22,7 +22,9 @@ pdf_read_timeout_seconds = 30.0
 pdf_write_timeout_seconds = 30.0
 operation_timeout_seconds = 120.0
 output_dir_suffix = "_chapters"
-output_overwrite = false
+output_collision_policy = "error"
+output_collision_max_suffix = 250
+fsync_writes = false
 page_offset = 0
 
 [retry]
@@ -79,19 +81,32 @@ confirm_auto_detect_overwrite_message = "Auto Detect will replace the current ch
 prompt_open_output_dir_after_export = true
 open_output_dir_prompt_title = "Export Complete"
 open_output_dir_prompt_message_template = "Created {count} chapter file(s) in:\\n{output_dir}\\n\\nOpen the output folder now?"
-enable_keyboard_shortcuts = true
+enable_keyboard_shortcuts = false
+show_status_bar = false
 status_hint = "Ready"
 enable_pdf_preview = true
-pdf_preview_zoom = 1.25
+pdf_preview_zoom = 1.0
+pdf_preview_fit_mode = "page"
+pdf_preview_fit_padding_px = 18
+pdf_preview_supersample = 2
+pdf_preview_min_zoom = 0.25
+pdf_preview_max_zoom = 4.0
+pdf_preview_zoom_step = 0.1
 pdf_preview_cache_entries = 8
 pdf_preview_render_timeout_seconds = 2.0
+chapter_review_thumbnail_width = 260
+chapter_review_columns = 2
+auto_show_review_after_detect = true
 
 [validation]
 max_chapters = 60
 require_unique_titles = true
+sort_chapters_by_start_page = true
+reject_overlapping_ranges = true
 
 [detection]
 enable_toc_fallback = true
+toc_auto_scan_max_start_page = 12
 toc_scan_max_pages = 5
 toc_entry_regexes = [
   "^(?P<title>.+?)\\s+\\.{2,}\\s*(?P<page>\\d+)\\s*$",

@@ -61,6 +61,8 @@ def validate_chapters(
     total_pages: int,
     max_chapters: int,
     require_unique_titles: bool,
+    sort_chapters_by_start_page: bool,
+    reject_overlapping_ranges: bool,
     location: str,
 ) -> list[ChapterDefinition]:
     """Validate a list of chapter definitions.
@@ -74,6 +76,8 @@ def validate_chapters(
         - total_pages: Total number of pages in the PDF.
         - max_chapters: Maximum allowed number of chapters.
         - require_unique_titles: Whether titles must be unique.
+        - sort_chapters_by_start_page: Whether to sort validated chapters by start page.
+        - reject_overlapping_ranges: Whether validated ranges must not overlap.
         - location: Fully qualified module and method name.
     Outputs:
         - List of validated ChapterDefinition objects.
@@ -110,4 +114,26 @@ def validate_chapters(
                 )
             seen_titles.add(chapter.title)
         validated.append(chapter)
+    if sort_chapters_by_start_page:
+        validated = sorted(
+            validated,
+            key=lambda item: (item.start_page, item.end_page, item.title),
+        )
+
+    if reject_overlapping_ranges:
+        ordered = sorted(
+            validated,
+            key=lambda item: (item.start_page, item.end_page, item.title),
+        )
+        for prev, curr in zip(ordered, ordered[1:], strict=False):
+            if curr.start_page <= prev.end_page:
+                raise ValidationError(
+                    format_error_message(
+                        error_location,
+                        "Chapter page ranges must not overlap. "
+                        f"'{prev.title}' ends at page {prev.end_page} but '{curr.title}' "
+                        f"starts at page {curr.start_page}.{context}",
+                    )
+                )
+
     return validated

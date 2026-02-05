@@ -28,6 +28,7 @@ class DetectionConfig:
     def __init__(
         self,
         enable_toc_fallback: bool,
+        toc_auto_scan_max_start_page: int,
         toc_scan_max_pages: int,
         toc_entry_regexes: Sequence[str],
         toc_ignore_title_regexes: Sequence[str],
@@ -42,6 +43,7 @@ class DetectionConfig:
             Loaded via the config loader and validated in Settings.validate.
         Inputs:
             - enable_toc_fallback: Whether TOC parsing fallback is enabled.
+            - toc_auto_scan_max_start_page: Highest page number considered as a TOC start candidate.
             - toc_scan_max_pages: Maximum number of pages to scan for TOC entries.
             - toc_entry_regexes: Regex patterns that must expose groups named 'title' and 'page'.
             - toc_ignore_title_regexes: Regex patterns for titles to ignore during parsing.
@@ -55,6 +57,7 @@ class DetectionConfig:
             - None.
         """
         self.enable_toc_fallback = enable_toc_fallback
+        self.toc_auto_scan_max_start_page = toc_auto_scan_max_start_page
         self.toc_scan_max_pages = toc_scan_max_pages
         self.toc_entry_regexes = tuple(toc_entry_regexes)
         self.toc_ignore_title_regexes = tuple(toc_ignore_title_regexes)
@@ -79,6 +82,13 @@ class DetectionConfig:
         """
         error_location = f"{__name__}.DetectionConfig.validate"
         context = f" Context: {location}." if location else ""
+        if self.toc_auto_scan_max_start_page < 1:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    "detection.toc_auto_scan_max_start_page must be at least 1." f"{context}",
+                )
+            )
         if self.toc_scan_max_pages < 1:
             raise ConfigurationError(
                 format_error_message(

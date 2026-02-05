@@ -13,6 +13,7 @@ from ....config.schema import UIConfig
 from ....core.errors import UiError, format_error_message
 from ....core.runtime import CancellationToken
 from ..widgets.chapter_grid import ChapterGridFrame
+from ..widgets.chapter_review import ChapterReviewFrame
 from ..widgets.pdf_preview.frame import PdfPreviewFrame
 
 
@@ -41,8 +42,11 @@ class ChapterWindowComponents:
     auto_detect_button: ttk.Button
     export_button: ttk.Button
     close_button: ttk.Button
-    status_label: ttk.Label
+    status_label: ttk.Label | None
     pdf_preview: PdfPreviewFrame | None
+    chapter_review: ChapterReviewFrame | None
+    right_notebook: ttk.Notebook | None
+    review_tab: ttk.Frame | None
 
 
 def build_chapter_window(
@@ -157,6 +161,11 @@ def build_chapter_window(
         open_pdf_button.grid(row=0, column=1, rowspan=3, sticky="ne", padx=(12, 0))
 
         pdf_preview: PdfPreviewFrame | None = None
+        chapter_review: ChapterReviewFrame | None = None
+        right_notebook: ttk.Notebook | None = None
+        review_tab: ttk.Frame | None = None
+
+        main_container: tk.Misc = chapter_win
         if ui_config.enable_pdf_preview:
             main_pane = ttk.PanedWindow(chapter_win, orient="horizontal")
             main_pane.grid(
@@ -174,22 +183,42 @@ def build_chapter_window(
                 token=token,
                 location=location,
             )
-            grid_frame = ChapterGridFrame(
-                main_pane,
-                prefill_chapters=None,
-                page_labels=page_labels,
-                ui_config=ui_config,
-            )
+            main_container = main_pane
             main_pane.add(pdf_preview, weight=1)
-            main_pane.add(grid_frame, weight=2)
+
+        right_container = ttk.Frame(main_container)
+        right_container.columnconfigure(0, weight=1)
+        right_container.rowconfigure(0, weight=1)
+
+        right_notebook = ttk.Notebook(right_container)
+        chapters_tab = ttk.Frame(right_notebook)
+        review_tab = ttk.Frame(right_notebook)
+        right_notebook.add(chapters_tab, text="Chapters")
+        right_notebook.add(review_tab, text="Review")
+        right_notebook.grid(row=0, column=0, sticky="nsew")
+
+        grid_frame = ChapterGridFrame(
+            chapters_tab,
+            prefill_chapters=None,
+            page_labels=page_labels,
+            ui_config=ui_config,
+        )
+        grid_frame.pack(fill="both", expand=True)
+
+        chapter_review = ChapterReviewFrame(
+            review_tab,
+            pdf_path=pdf_path,
+            total_pages=total_pages,
+            ui_config=ui_config,
+            token=token,
+            location=location,
+        )
+        chapter_review.pack(fill="both", expand=True)
+
+        if isinstance(main_container, ttk.PanedWindow):
+            main_container.add(right_container, weight=2)
         else:
-            grid_frame = ChapterGridFrame(
-                chapter_win,
-                prefill_chapters=None,
-                page_labels=page_labels,
-                ui_config=ui_config,
-            )
-            grid_frame.grid(
+            right_container.grid(
                 row=1,
                 column=0,
                 sticky="nsew",
@@ -231,18 +260,20 @@ def build_chapter_window(
         close_button = ttk.Button(right_actions, text=ui_config.close_button_label)
         close_button.pack(side="left")
 
-        status_label = ttk.Label(
-            chapter_win,
-            text=ui_config.status_hint,
-            anchor="w",
-        )
-        status_label.grid(
-            row=3,
-            column=0,
-            sticky="ew",
-            padx=ui_config.grid_frame_padding_x,
-            pady=(0, ui_config.grid_frame_padding_y),
-        )
+        status_label: ttk.Label | None = None
+        if ui_config.show_status_bar:
+            status_label = ttk.Label(
+                chapter_win,
+                text=ui_config.status_hint,
+                anchor="w",
+            )
+            status_label.grid(
+                row=3,
+                column=0,
+                sticky="ew",
+                padx=ui_config.grid_frame_padding_x,
+                pady=(0, ui_config.grid_frame_padding_y),
+            )
     except tk.TclError as exc:
         raise UiError(
             format_error_message(error_location, f"Unable to build chapter window: {exc}.{context}")
@@ -258,4 +289,7 @@ def build_chapter_window(
         close_button=close_button,
         status_label=status_label,
         pdf_preview=pdf_preview,
+        chapter_review=chapter_review,
+        right_notebook=right_notebook,
+        review_tab=review_tab,
     )

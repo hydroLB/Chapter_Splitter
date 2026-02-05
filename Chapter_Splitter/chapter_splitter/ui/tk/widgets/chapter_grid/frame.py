@@ -20,6 +20,41 @@ AddMode = Literal["append", "replace", "insert"]
 AddAction = tuple[AddMode, int]
 
 
+def _set_entry_state(
+    widget: tk.Entry,
+    *,
+    enabled: bool,
+    readonly_when_enabled: bool = False,
+) -> None:
+    """Set the enabled/disabled state for an entry-like widget.
+
+    Summary:
+        Normalize state transitions across ttk.Entry, ttk.Combobox, and tk.Entry.
+    Inputs:
+        - widget: Entry widget to update.
+        - enabled: True for interactive, False for disabled.
+        - readonly_when_enabled: When True and widget is a Combobox, uses readonly mode.
+    Outputs:
+        - None.
+    Side effects:
+        Updates the widget state.
+    Error handling:
+        Lets Tk exceptions bubble to the caller, which should wrap them as UiError.
+    Ties to other methods:
+        Used by ChapterGridFrame.set_interaction_enabled.
+    Why this exists:
+        Tk widgets use slightly different state semantics; centralizing them prevents drift.
+    """
+    if isinstance(widget, ttk.Combobox):
+        widget.config(
+            state="readonly"
+            if enabled and readonly_when_enabled
+            else ("normal" if enabled else "disabled")
+        )
+        return
+    widget.config(state="normal" if enabled else "disabled")
+
+
 class ChapterGridFrame(tk.Frame):
     """A grid where each row defines a chapter title and page range.
 
@@ -304,6 +339,45 @@ class ChapterGridFrame(tk.Frame):
                 )
             ) from exc
 
+    def set_interaction_enabled(self, enabled: bool, location: str) -> None:
+        """Enable or disable interactive widgets in the grid.
+
+        Summary:
+            Prevent edits while long-running workflow actions are running.
+        Inputs:
+            - enabled: True to enable interaction, False to disable it.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the `state` of entry widgets, comboboxes, and per-row buttons.
+        Error handling:
+            Raises UiError when Tk state changes fail.
+        Ties to other methods:
+            Used by the Tk workflow busy-state helper to avoid concurrent edits.
+        Why this exists:
+            Disabling inputs during export and detection avoids inconsistent reads and reduces the
+            chance of Tk widgets being destroyed while the user is typing.
+        """
+        error_location = f"{__name__}.ChapterGridFrame.set_interaction_enabled"
+        context = f" Context: {location}." if location else ""
+        try:
+            for row in self._rows:
+                if row is None:
+                    continue
+                title_entry, start_entry, end_entry, remove_button = row
+                _set_entry_state(title_entry, enabled=enabled)
+                _set_entry_state(start_entry, enabled=enabled, readonly_when_enabled=True)
+                _set_entry_state(end_entry, enabled=enabled, readonly_when_enabled=True)
+                remove_button.config(state="normal" if enabled else "disabled")
+        except tk.TclError as exc:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Unable to update grid widget states.{context}",
+                )
+            ) from exc
+
     def _plan_add_action(self, insert_idx: int | None, error_location: str) -> AddAction:
         """Determine how a row should be added to the internal list.
 
@@ -552,6 +626,47 @@ class ChapterGridFrame(tk.Frame):
         _title, start_field, _end_field, _remove = row
         self._set_field_value(start_field, value, location)
 
+    def set_active_row_index(self, row_index: int, location: str) -> None:
+        """Set the active row index for subsequent external actions.
+
+        Summary:
+            Allow helper panels (preview/review) to target a specific chapter row for edits.
+        Inputs:
+            - row_index: Zero-based row index.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the internal active row pointer and focuses the row title widget.
+        Error handling:
+            Raises UiError when the row index is invalid or the row does not exist.
+        Ties to other methods:
+            Used by the chapter review gallery to apply corrections to a specific row.
+        Why this exists:
+            Quick correction workflows need deterministic row targeting, not implicit "last active"
+            behavior.
+        """
+        error_location = f"{__name__}.ChapterGridFrame.set_active_row_index"
+        context = f" Context: {location}." if location else ""
+        if row_index < 0 or row_index >= len(self._rows):
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Row index out of range: {row_index}.{context}",
+                )
+            )
+        row = self._rows[row_index]
+        if row is None:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Row {row_index} is empty.{context}",
+                )
+            )
+        self._active_row_index = row_index
+        with suppress(tk.TclError):
+            row[0].focus_set()
+
     def set_active_row_end_at_page(self, page_number: int, location: str) -> None:
         """Set the active row end value based on a 1-based page number.
 
@@ -574,6 +689,93 @@ class ChapterGridFrame(tk.Frame):
         row_idx = self._ensure_active_row(location)
         value = self._page_value_for_number(page_number, location)
         row = self._require_row(row_idx, location)
+        _title, _start_field, end_field, _remove = row
+        self._set_field_value(end_field, value, location)
+
+    def get_row_page_numbers(self, row_index: int, location: str) -> tuple[int, int]:
+        """Return the start/end page numbers for a row.
+
+        Summary:
+            Parse the row's start and end fields into 1-based page numbers, honoring page labels
+            when present.
+        Inputs:
+            - row_index: Zero-based row index.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - (start_page, end_page) tuple.
+        Side effects:
+            None.
+        Error handling:
+            Raises UiError for missing rows and ValidationError for missing/invalid page values.
+        Ties to other methods:
+            Used by the chapter review gallery to compute +/- adjustments.
+        Why this exists:
+            Corrections should operate on validated numeric page values, not raw widget strings.
+        """
+        error_location = f"{__name__}.ChapterGridFrame.get_row_page_numbers"
+        context = f" Context: {location}." if location else ""
+        row = self._require_row(row_index, location)
+        _title, start_field, end_field, _remove = row
+        start_raw = start_field.get().strip()
+        end_raw = end_field.get().strip()
+        start_page = self._parse_page_value(start_raw)
+        end_page = self._parse_page_value(end_raw)
+        if start_page is None or end_page is None:
+            raise ValidationError(
+                format_error_message(
+                    error_location,
+                    f"Row {row_index + 1} must have both start and end values set.{context}",
+                )
+            )
+        return start_page, end_page
+
+    def set_row_start_at_page(self, row_index: int, page_number: int, location: str) -> None:
+        """Set the start page for a specific row.
+
+        Summary:
+            Apply a 1-based page number to a specific row start field.
+        Inputs:
+            - row_index: Zero-based row index.
+            - page_number: 1-based page number.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the row start widget value.
+        Error handling:
+            Raises UiError or ValidationError for invalid indices or page numbers.
+        Ties to other methods:
+            Used by the chapter review gallery quick correction buttons.
+        Why this exists:
+            Row-targeted updates avoid implicit "active row" behavior when correcting many chapters.
+        """
+        value = self._page_value_for_number(page_number, location)
+        row = self._require_row(row_index, location)
+        _title, start_field, _end_field, _remove = row
+        self._set_field_value(start_field, value, location)
+
+    def set_row_end_at_page(self, row_index: int, page_number: int, location: str) -> None:
+        """Set the end page for a specific row.
+
+        Summary:
+            Apply a 1-based page number to a specific row end field.
+        Inputs:
+            - row_index: Zero-based row index.
+            - page_number: 1-based page number.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the row end widget value.
+        Error handling:
+            Raises UiError or ValidationError for invalid indices or page numbers.
+        Ties to other methods:
+            Used by the chapter review gallery quick correction buttons.
+        Why this exists:
+            Corrections should be quick and deterministic across many chapters.
+        """
+        value = self._page_value_for_number(page_number, location)
+        row = self._require_row(row_index, location)
         _title, _start_field, end_field, _remove = row
         self._set_field_value(end_field, value, location)
 

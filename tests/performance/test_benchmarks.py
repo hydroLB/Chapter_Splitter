@@ -50,7 +50,9 @@ def test_split_performance_budget(tmp_path: Path) -> None:
         pdf_write_timeout_seconds=settings.io.pdf_write_timeout_seconds,
         operation_timeout_seconds=settings.io.operation_timeout_seconds,
         output_dir_suffix=settings.io.output_dir_suffix,
-        output_overwrite=True,
+        output_collision_policy="overwrite",
+        output_collision_max_suffix=settings.io.output_collision_max_suffix,
+        fsync_writes=settings.io.fsync_writes,
         page_offset=settings.io.page_offset,
     )
     token = CancellationToken()

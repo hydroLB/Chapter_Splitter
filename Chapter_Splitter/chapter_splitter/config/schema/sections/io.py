@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from ....core.errors import ConfigurationError, format_error_message
+
+OutputCollisionPolicy = Literal["error", "overwrite", "suffix"]
 
 
 class IOConfig:
@@ -30,7 +34,9 @@ class IOConfig:
         pdf_write_timeout_seconds: float,
         operation_timeout_seconds: float,
         output_dir_suffix: str,
-        output_overwrite: bool,
+        output_collision_policy: OutputCollisionPolicy,
+        output_collision_max_suffix: int,
+        fsync_writes: bool,
         page_offset: int,
     ) -> None:
         """Initialize IO configuration.
@@ -46,7 +52,10 @@ class IOConfig:
             - pdf_write_timeout_seconds: Timeout for PDF write.
             - operation_timeout_seconds: Timeout for long running operations.
             - output_dir_suffix: Suffix appended to output directory.
-            - output_overwrite: Whether to overwrite existing output files.
+            - output_collision_policy: How to handle existing output paths.
+            - output_collision_max_suffix: Max suffix attempts when output_collision_policy is
+              suffix.
+            - fsync_writes: Whether to flush output to disk before renaming.
             - page_offset: Default page offset for splits.
         Outputs:
             - None.
@@ -61,7 +70,9 @@ class IOConfig:
         self.pdf_write_timeout_seconds = pdf_write_timeout_seconds
         self.operation_timeout_seconds = operation_timeout_seconds
         self.output_dir_suffix = output_dir_suffix
-        self.output_overwrite = output_overwrite
+        self.output_collision_policy = output_collision_policy
+        self.output_collision_max_suffix = output_collision_max_suffix
+        self.fsync_writes = fsync_writes
         self.page_offset = page_offset
 
     def validate(self, location: str) -> None:
@@ -110,6 +121,21 @@ class IOConfig:
             raise ConfigurationError(
                 format_error_message(
                     error_location, f"io.output_dir_suffix must be non empty.{context}"
+                )
+            )
+        if self.output_collision_policy not in ("error", "overwrite", "suffix"):
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    "io.output_collision_policy must be one of: error, overwrite, suffix."
+                    f"{context}",
+                )
+            )
+        if self.output_collision_max_suffix < 2:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"io.output_collision_max_suffix must be at least 2.{context}",
                 )
             )
         if self.page_offset < 0:
