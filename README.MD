@@ -69,7 +69,7 @@ Key sections to know:
 
 - `app` controls title and correlation ID prefix
 - `logging` controls structured JSON output and redaction
-- `io` controls timeouts, output naming, and overwrite policy
+- `io` controls timeouts, output naming, and collision policy
 - `ui` controls grid sizing, labels, and dialog text
 - `validation` defines chapter limits and uniqueness rules
 - `performance` sets benchmark budgets
@@ -93,7 +93,7 @@ python scripts/profile_split.py
 
 - Missing `pypdf`: install with `pip install pypdf==6.6.2`
 - Config errors: check `Chapter_Splitter/chapter_splitter/config/settings.toml` and any overrides
-- Output collisions: set `io.output_overwrite = true` or change `io.output_dir_suffix`
+- Output collisions: set `io.output_collision_policy = "overwrite"` or `"suffix"`, or change `io.output_dir_suffix`
 - UI actions ignored: increase `ui.action_rate_limit_seconds` if the OS is slow
 
 ## Architecture Overview

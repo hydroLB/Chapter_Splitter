@@ -17,6 +17,13 @@ from .....core.runtime import CancellationToken
 from .....utils.timing import Deadline
 
 
+class RectProtocol(Protocol):
+    """Structural type for a PyMuPDF Rect-like object."""
+
+    width: float
+    height: float
+
+
 class PixmapProtocol(Protocol):
     width: int
     height: int
@@ -34,6 +41,9 @@ class PageProtocol(Protocol):
     def get_pixmap(
         self, matrix: MatrixProtocol | None = ..., alpha: bool = ...
     ) -> PixmapProtocol: ...
+
+    @property
+    def rect(self) -> RectProtocol: ...
 
 
 class DocumentProtocol(Protocol):
@@ -308,3 +318,67 @@ class PdfPreviewRenderer:
         width = int(getattr(pix, "width", 0))
         height = int(getattr(pix, "height", 0))
         return RenderedImage(png_base64=b64, width=width, height=height)
+
+    def get_page_size_points(
+        self,
+        page_number: int,
+        deadline: Deadline,
+        token: CancellationToken,
+        location: str,
+    ) -> tuple[float, float]:
+        """Return the page size in PDF points for fit calculations.
+
+        Summary:
+            Provide a stable page width/height in points so the UI can compute fit-to-view zoom.
+        Inputs:
+            - page_number: 1-based page number.
+            - deadline: Deadline for time bounding page inspection.
+            - token: Cancellation token for graceful shutdown.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - (width_points, height_points) tuple.
+        Side effects:
+            Loads a page from the open document.
+        Error handling:
+            Raises UiError when the document is not open or page inspection fails.
+        Ties to other methods:
+            Used by PdfPreviewFrame when computing fit zoom values.
+        Why this exists:
+            Fit calculations should not guess at DPI; PDF points provide a consistent baseline.
+        """
+        token.check(location)
+        deadline.check(location)
+        error_location = f"{__name__}.PdfPreviewRenderer.get_page_size_points"
+        context = f" Context: {location}." if location else ""
+        if self._doc is None:
+            raise UiError(
+                format_error_message(error_location, f"Preview document not open.{context}")
+            )
+        if page_number < 1:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"page_number must be >= 1 (got {page_number}).{context}",
+                )
+            )
+        try:
+            page = self._doc.load_page(page_number - 1)
+            rect = page.rect
+            deadline.check(location)
+        except Exception as exc:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Unable to read page size for page {page_number}.{context}",
+                )
+            ) from exc
+        width = float(getattr(rect, "width", 0.0))
+        height = float(getattr(rect, "height", 0.0))
+        if width <= 0 or height <= 0:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Invalid page size for page {page_number} ({width}x{height}).{context}",
+                )
+            )
+        return width, height

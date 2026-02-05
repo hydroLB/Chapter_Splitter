@@ -44,7 +44,9 @@ def _valid_io() -> IOConfig:
         pdf_write_timeout_seconds=1.0,
         operation_timeout_seconds=1.0,
         output_dir_suffix="_out",
-        output_overwrite=False,
+        output_collision_policy="error",
+        output_collision_max_suffix=10,
+        fsync_writes=False,
         page_offset=0,
     )
 
@@ -59,7 +61,12 @@ def _valid_retry() -> RetryConfig:
 
 
 def _valid_validation() -> ValidationConfig:
-    return ValidationConfig(max_chapters=10, require_unique_titles=True)
+    return ValidationConfig(
+        max_chapters=10,
+        require_unique_titles=True,
+        sort_chapters_by_start_page=True,
+        reject_overlapping_ranges=True,
+    )
 
 
 def _valid_performance() -> PerformanceConfig:
@@ -69,6 +76,7 @@ def _valid_performance() -> PerformanceConfig:
 def _valid_detection() -> DetectionConfig:
     return DetectionConfig(
         enable_toc_fallback=True,
+        toc_auto_scan_max_start_page=5,
         toc_scan_max_pages=3,
         toc_entry_regexes=(
             r"^(?P<title>.+?)\s+\.\.{2,}\s*(?P<page>\d+)\s*$",
@@ -130,11 +138,21 @@ def _valid_ui() -> UIConfig:
         open_output_dir_prompt_title="Done",
         open_output_dir_prompt_message_template="{count} {output_dir}",
         enable_keyboard_shortcuts=True,
+        show_status_bar=True,
         status_hint="hint",
         enable_pdf_preview=False,
         pdf_preview_zoom=1.0,
+        pdf_preview_fit_mode="none",
+        pdf_preview_fit_padding_px=0,
+        pdf_preview_supersample=1,
+        pdf_preview_min_zoom=0.25,
+        pdf_preview_max_zoom=4.0,
+        pdf_preview_zoom_step=0.1,
         pdf_preview_cache_entries=4,
         pdf_preview_render_timeout_seconds=1.0,
+        chapter_review_thumbnail_width=120,
+        chapter_review_columns=1,
+        auto_show_review_after_detect=False,
     )
 
 
@@ -255,7 +273,9 @@ def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
             pdf_write_timeout_seconds=1.0,
             operation_timeout_seconds=1.0,
             output_dir_suffix="_out",
-            output_overwrite=False,
+            output_collision_policy="error",
+            output_collision_max_suffix=10,
+            fsync_writes=False,
             page_offset=0,
         ).validate("tests.unit.test_config_schema_validation")
     with pytest.raises(ConfigurationError):
@@ -266,9 +286,12 @@ def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
             jitter_ratio=0,
         ).validate("tests.unit.test_config_schema_validation")
     with pytest.raises(ConfigurationError):
-        ValidationConfig(max_chapters=0, require_unique_titles=True).validate(
-            "tests.unit.test_config_schema_validation"
-        )
+        ValidationConfig(
+            max_chapters=0,
+            require_unique_titles=True,
+            sort_chapters_by_start_page=True,
+            reject_overlapping_ranges=True,
+        ).validate("tests.unit.test_config_schema_validation")
     with pytest.raises(ConfigurationError):
         PerformanceConfig(benchmark_iterations=0, benchmark_budget_seconds=1.0).validate(
             "tests.unit.test_config_schema_validation"

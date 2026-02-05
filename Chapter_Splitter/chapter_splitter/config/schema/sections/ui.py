@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 from ....core.errors import ConfigurationError, format_error_message
+
+PdfPreviewFitMode = Literal["page", "width", "none"]
 
 
 class UIConfig:
@@ -74,11 +77,21 @@ class UIConfig:
         open_output_dir_prompt_title: str,
         open_output_dir_prompt_message_template: str,
         enable_keyboard_shortcuts: bool,
+        show_status_bar: bool,
         status_hint: str,
         enable_pdf_preview: bool,
         pdf_preview_zoom: float,
+        pdf_preview_fit_mode: PdfPreviewFitMode,
+        pdf_preview_fit_padding_px: int,
+        pdf_preview_supersample: int,
+        pdf_preview_min_zoom: float,
+        pdf_preview_max_zoom: float,
+        pdf_preview_zoom_step: float,
         pdf_preview_cache_entries: int,
         pdf_preview_render_timeout_seconds: float,
+        chapter_review_thumbnail_width: int,
+        chapter_review_columns: int,
+        auto_show_review_after_detect: bool,
     ) -> None:
         """Initialize UI configuration.
 
@@ -138,8 +151,18 @@ class UIConfig:
             - status_hint: Status bar hint displayed at the bottom of the window.
             - enable_pdf_preview: Whether the chapter window shows an embedded PDF preview panel.
             - pdf_preview_zoom: Render zoom factor for the embedded preview.
+            - pdf_preview_fit_mode: Default fit mode for embedded preview (page, width, none).
+            - pdf_preview_fit_padding_px: Padding applied when computing fit zoom.
+            - pdf_preview_supersample: Integer supersampling factor for crisper rendering.
+            - pdf_preview_min_zoom: Minimum manual zoom factor.
+            - pdf_preview_max_zoom: Maximum manual zoom factor.
+            - pdf_preview_zoom_step: Manual zoom increment/decrement step.
             - pdf_preview_cache_entries: Maximum number of rendered pages to cache in memory.
             - pdf_preview_render_timeout_seconds: Time budget for rendering a single preview page.
+            - chapter_review_thumbnail_width: Target width for chapter review thumbnails in pixels.
+            - chapter_review_columns: Number of chapter cards per row in the review gallery.
+            - auto_show_review_after_detect: Whether to automatically open the review tab after
+              detection.
         Outputs:
             - None.
         Side Effects:
@@ -195,11 +218,21 @@ class UIConfig:
         self.open_output_dir_prompt_title = open_output_dir_prompt_title
         self.open_output_dir_prompt_message_template = open_output_dir_prompt_message_template
         self.enable_keyboard_shortcuts = enable_keyboard_shortcuts
+        self.show_status_bar = show_status_bar
         self.status_hint = status_hint
         self.enable_pdf_preview = enable_pdf_preview
         self.pdf_preview_zoom = pdf_preview_zoom
+        self.pdf_preview_fit_mode = pdf_preview_fit_mode
+        self.pdf_preview_fit_padding_px = pdf_preview_fit_padding_px
+        self.pdf_preview_supersample = pdf_preview_supersample
+        self.pdf_preview_min_zoom = pdf_preview_min_zoom
+        self.pdf_preview_max_zoom = pdf_preview_max_zoom
+        self.pdf_preview_zoom_step = pdf_preview_zoom_step
         self.pdf_preview_cache_entries = pdf_preview_cache_entries
         self.pdf_preview_render_timeout_seconds = pdf_preview_render_timeout_seconds
+        self.chapter_review_thumbnail_width = chapter_review_thumbnail_width
+        self.chapter_review_columns = chapter_review_columns
+        self.auto_show_review_after_detect = auto_show_review_after_detect
 
     def validate(self, location: str) -> None:
         """Validate UI configuration.
@@ -490,7 +523,7 @@ class UIConfig:
                         f"ui.open_output_dir_prompt_message_template must be non empty.{context}",
                     )
                 )
-        if not self.status_hint.strip():
+        if self.show_status_bar and not self.status_hint.strip():
             raise ConfigurationError(
                 format_error_message(
                     error_location,
@@ -502,6 +535,49 @@ class UIConfig:
                 format_error_message(
                     error_location,
                     f"ui.pdf_preview_zoom must be positive.{context}",
+                )
+            )
+        if self.pdf_preview_fit_mode not in ("page", "width", "none"):
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_preview_fit_mode must be one of: page, width, none.{context}",
+                )
+            )
+        if self.pdf_preview_fit_padding_px < 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_preview_fit_padding_px must be non negative.{context}",
+                )
+            )
+        if self.pdf_preview_supersample < 1:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_preview_supersample must be at least 1.{context}",
+                )
+            )
+        if self.pdf_preview_min_zoom <= 0 or self.pdf_preview_max_zoom <= 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    "ui.pdf_preview_min_zoom and ui.pdf_preview_max_zoom must be positive."
+                    f"{context}",
+                )
+            )
+        if self.pdf_preview_min_zoom > self.pdf_preview_max_zoom:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_preview_min_zoom must not exceed ui.pdf_preview_max_zoom.{context}",
+                )
+            )
+        if self.pdf_preview_zoom_step <= 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.pdf_preview_zoom_step must be positive.{context}",
                 )
             )
         if self.pdf_preview_cache_entries < 0:
@@ -516,5 +592,19 @@ class UIConfig:
                 format_error_message(
                     error_location,
                     "ui.pdf_preview_render_timeout_seconds must be positive." f"{context}",
+                )
+            )
+        if self.chapter_review_thumbnail_width < 80:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.chapter_review_thumbnail_width must be at least 80.{context}",
+                )
+            )
+        if self.chapter_review_columns < 1:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.chapter_review_columns must be at least 1.{context}",
                 )
             )

@@ -26,6 +26,7 @@ class _FakeReader:
 def _default_detection() -> DetectionConfig:
     return DetectionConfig(
         enable_toc_fallback=True,
+        toc_auto_scan_max_start_page=5,
         toc_scan_max_pages=3,
         toc_entry_regexes=(
             r"^(?P<title>.+?)\s+\.\.{2,}\s*(?P<page>\d+)\s*$",

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager, suppress
 from pathlib import Path
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, ttk
 
 from ...config.schema import Settings
 from ...core.errors import (
@@ -19,8 +20,11 @@ from ...core.errors import (
 from ...core.models import ChapterDefinition
 from ...core.runtime import CancellationToken
 from ...observability.logging import log_event, new_correlation_id, set_correlation_id
-from ...pdf.detection.outlines import detect_chapters_from_outlines
-from ...pdf.detection.toc import detect_chapters_from_toc_page
+from ...pdf.detection.detector import (
+    DetectionRequest,
+    detect_chapters_in_reader,
+    format_detection_report,
+)
 from ...pdf.io.labels import extract_page_labels
 from ...pdf.io.loader import get_total_pages, load_reader
 from ...pdf.splitting.splitter import split_pdf_into_chapters
@@ -30,6 +34,7 @@ from ...utils.timing import Deadline
 from ...utils.viewer import open_in_default_viewer, open_path_in_default_viewer
 from .dialogs import choose_pdf_file
 from .widgets.chapter_grid import ChapterGridFrame
+from .widgets.chapter_review import ChapterReviewActions
 from .widgets.pdf_preview.frame import PdfPreviewActions
 from .windows.chapter_window import ChapterWindowComponents, build_chapter_window
 
@@ -56,6 +61,7 @@ def workflow(settings: Settings, token: CancellationToken) -> None:
     location = "chapter_splitter.ui.tk.workflow.workflow"
     root = tk.Tk()
     root.withdraw()
+    _configure_ttk_style(root)
 
     def _on_close() -> None:
         """Handle window close events.
@@ -105,6 +111,34 @@ def workflow(settings: Settings, token: CancellationToken) -> None:
         root.destroy()
 
 
+def _configure_ttk_style(root: tk.Tk) -> None:
+    """Apply minimal ttk style tweaks for a cleaner, more native feel.
+
+    Summary:
+        Configure small padding adjustments without forcing colors so the UI stays compatible with
+        system light/dark themes.
+    Inputs:
+        - root: Tk root window.
+    Outputs:
+        - None.
+    Side effects:
+        Updates global ttk styles for the process.
+    Error handling:
+        Suppresses Tk errors for platforms/themes that do not support specific options.
+    Ties to other methods:
+        Called by workflow after creating the root window.
+    Why this exists:
+        Default widget padding can feel cramped; subtle tweaks help the UI read closer to macOS
+        conventions without adding third-party theme dependencies.
+    """
+    with suppress(tk.TclError):
+        style = ttk.Style(root)
+        if "aqua" in style.theme_names():
+            style.theme_use("aqua")
+        style.configure("TButton", padding=(10, 6))
+        style.configure("TNotebook.Tab", padding=(12, 6))
+
+
 def _run_workflow(
     settings: Settings,
     token: CancellationToken,
@@ -143,6 +177,7 @@ def _run_workflow(
     ui_controls: ChapterWindowComponents | None = None
     win: tk.Toplevel | None = None
     grid: ChapterGridFrame | None = None
+    is_busy = False
 
     def _require_controls() -> tuple[ChapterWindowComponents, tk.Toplevel, ChapterGridFrame]:
         """Resolve UI widget references after the window is built.
@@ -172,6 +207,204 @@ def _run_workflow(
                 )
             )
         return ui_controls, win, grid
+
+    def _set_primary_controls_state(
+        controls: ChapterWindowComponents,
+        *,
+        state: str,
+        include_close: bool,
+        location: str,
+    ) -> None:
+        """Set enabled/disabled state for the primary action controls.
+
+        Summary:
+            Centralize button state toggling so long-running actions cannot drift over time.
+        Inputs:
+            - controls: ChapterWindowComponents bundle.
+            - state: Tk state string (normal or disabled).
+            - include_close: Whether to update the close button.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - None.
+        Side effects:
+            Updates Tk button state.
+        Error handling:
+            Raises UiError when Tk calls fail.
+        Ties to other methods:
+            Used by _busy_action context manager.
+        Why this exists:
+            The workflow disables a consistent set of controls during detection/export; centralizing
+            the list prevents subtle inconsistencies between actions.
+        """
+        error_location = f"{__name__}._run_workflow._set_primary_controls_state"
+        context = f" Context: {location}." if location else ""
+        try:
+            controls.auto_detect_button.config(state=state)
+            controls.export_button.config(state=state)
+            controls.open_pdf_button.config(state=state)
+            controls.add_button.config(state=state)
+            if include_close:
+                controls.close_button.config(state=state)
+        except tk.TclError as exc:
+            raise UiError(
+                format_error_message(
+                    error_location,
+                    f"Unable to set control state '{state}'.{context}",
+                )
+            ) from exc
+
+    def _set_status_text(controls: ChapterWindowComponents, text: str) -> None:
+        """Update the UI status message in a consistent place.
+
+        Summary:
+            Display status text in the configured status bar, or fall back to the window title.
+        Inputs:
+            - controls: ChapterWindowComponents bundle.
+            - text: Status message to display.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the status label text or window title.
+        Error handling:
+            Swallows Tk errors during teardown to avoid masking the primary failure.
+        Ties to other methods:
+            Used by _busy_action and open-PDF flow.
+        Why this exists:
+            Some users prefer a cleaner window without a footer; title fallback preserves feedback.
+        """
+        if controls.status_label is not None and controls.status_label.winfo_exists():
+            with suppress(tk.TclError):
+                controls.status_label.config(text=text)
+            return
+        with suppress(tk.TclError):
+            controls.window.title(f"{settings.ui.chapter_window_title} - {text}")
+
+    @contextmanager
+    def _busy_action(
+        controls: ChapterWindowComponents,
+        grid_widget: ChapterGridFrame,
+        *,
+        status_text: str,
+        disable_close: bool,
+        location: str,
+    ) -> Iterator[None]:
+        """Apply a consistent busy/idle UI state around an action.
+
+        Summary:
+            Disable interactive UI while an action runs, then restore it reliably.
+        Inputs:
+            - controls: ChapterWindowComponents bundle.
+            - grid_widget: ChapterGridFrame instance to disable during work.
+            - status_text: Status message displayed while running.
+            - disable_close: Whether to disable the close button during work.
+            - location: Fully qualified module and method name.
+        Outputs:
+            - Context manager that runs the action.
+        Side effects:
+            Disables buttons, grid, and preview interactions; changes the cursor.
+        Error handling:
+            Restores UI state best-effort even if errors occur.
+        Ties to other methods:
+            Used by export/detection actions.
+        Why this exists:
+            Keeping busy-state behavior consistent prevents partial disable/enable bugs and reduces
+            the chance of concurrent actions corrupting UI state.
+        """
+        nonlocal is_busy
+        is_busy = True
+        try:
+            _set_status_text(controls, status_text)
+            controls.window.config(cursor="watch")
+            _set_primary_controls_state(
+                controls,
+                state="disabled",
+                include_close=disable_close,
+                location=location,
+            )
+            grid_widget.set_interaction_enabled(False, location)
+            if controls.pdf_preview is not None:
+                controls.pdf_preview.set_interaction_enabled(False)
+            if controls.chapter_review is not None:
+                controls.chapter_review.set_interaction_enabled(False)
+            yield
+        finally:
+            is_busy = False
+            if controls.window.winfo_exists():
+                with suppress(tk.TclError):
+                    controls.window.config(cursor="")
+                    _set_primary_controls_state(
+                        controls,
+                        state="normal",
+                        include_close=True,
+                        location=location,
+                    )
+                    grid_widget.set_interaction_enabled(True, location)
+                    if controls.pdf_preview is not None:
+                        controls.pdf_preview.set_interaction_enabled(True)
+                    if controls.chapter_review is not None:
+                        controls.chapter_review.set_interaction_enabled(True)
+                    if controls.status_label is not None:
+                        controls.status_label.config(text=settings.ui.status_hint)
+                    else:
+                        controls.window.title(settings.ui.chapter_window_title)
+
+    def _prepare_action(controls: ChapterWindowComponents) -> None:
+        """Prepare action execution with correlation IDs and cancellation checks.
+
+        Summary:
+            Reset correlation IDs and fail fast when cancellation has been requested.
+        Inputs:
+            - controls: ChapterWindowComponents bundle.
+        Outputs:
+            - None.
+        Side effects:
+            Updates correlation ID for logging context.
+        Error handling:
+            Propagates CancellationError and ConfigurationError as ChapterSplitterError.
+        Ties to other methods:
+            Used by long-running UI actions.
+        Why this exists:
+            Keeping action setup consistent makes logs and cancellation behavior predictable.
+        """
+        set_correlation_id(
+            new_correlation_id(settings.app.correlation_id_prefix, location),
+            location,
+        )
+        token.check(location)
+
+    def _confirm_overwrite_if_needed(
+        controls: ChapterWindowComponents,
+        grid_widget: ChapterGridFrame,
+    ) -> bool:
+        """Prompt before replacing existing grid content when configured.
+
+        Summary:
+            Guard destructive actions that replace the chapter list.
+        Inputs:
+            - controls: ChapterWindowComponents bundle.
+            - grid_widget: ChapterGridFrame to inspect.
+        Outputs:
+            - True when the caller should proceed, False when cancelled.
+        Side effects:
+            Shows a modal dialog when the user has already typed ranges.
+        Error handling:
+            Propagates UiError/ValidationError from has_defined_ranges.
+        Ties to other methods:
+            Used by auto-detect and TOC detect actions.
+        Why this exists:
+            A consistent prompt reduces accidental data loss.
+        """
+        if not settings.ui.confirm_auto_detect_overwrite:
+            return True
+        if not grid_widget.has_defined_ranges():
+            return True
+        return bool(
+            messagebox.askyesno(
+                settings.ui.confirm_auto_detect_overwrite_title,
+                settings.ui.confirm_auto_detect_overwrite_message,
+                parent=controls.window,
+            )
+        )
 
     if settings.ui.auto_open_viewer and settings.io.open_viewer:
         try:
@@ -219,132 +452,56 @@ def _run_workflow(
         if not action_limiter.allow():
             return
         controls, _win_handle, grid_widget = _require_controls()
-        if settings.ui.confirm_auto_detect_overwrite and grid_widget.has_defined_ranges():
-            should_replace = messagebox.askyesno(
-                settings.ui.confirm_auto_detect_overwrite_title,
-                settings.ui.confirm_auto_detect_overwrite_message,
-            )
-            if not should_replace:
-                return
-
-        def _prompt_for_toc_page(default_page: int) -> int | None:
-            """Prompt the user for a TOC start page.
-
-            Purpose:
-                Provide a fallback when embedded PDF preview is disabled or unavailable.
-            Ties To:
-                Used when outlines are missing and TOC fallback detection is enabled.
-            Inputs:
-                - default_page: Initial value for the dialog.
-            Outputs:
-                - Selected page number, or None when cancelled.
-            Side Effects:
-                Shows a modal dialog.
-            Raises:
-                - None.
-            """
-            return simpledialog.askinteger(
-                "TOC Page",
-                "Enter the page number where the Table of Contents starts:",
-                minvalue=1,
-                maxvalue=total_pages,
-                initialvalue=default_page,
-                parent=controls.window,
-            )
-
-        def _run_toc_fallback(toc_page: int) -> bool:
-            """Run TOC-based detection starting at the provided page.
-
-            Purpose:
-                Populate the grid by parsing a table-of-contents page when outlines are unavailable.
-            Ties To:
-                Called by auto-detect fallback and the embedded preview action.
-            Inputs:
-                - toc_page: 1-based page number where the TOC starts.
-            Outputs:
-                - True when chapters were detected and applied, otherwise False.
-            Side Effects:
-                Updates the grid and status label.
-            Raises:
-                - ChapterSplitterError: When detection fails.
-            """
-            detect_deadline = Deadline(settings.io.operation_timeout_seconds)
-            chapters = detect_chapters_from_toc_page(
-                reader=reader,
-                toc_start_page=toc_page,
-                total_pages=total_pages,
-                detection=settings.detection,
-                deadline=detect_deadline,
-                token=token,
-                location=location,
-            )
-            if not chapters:
-                return False
-            prefill_rows = _chapters_to_prefill(chapters, page_labels)
-            grid_widget.prefill(prefill_rows)
-            controls.status_label.config(text=settings.ui.status_hint)
-            return True
-
         try:
-            controls.status_label.config(text="Detecting chapters from PDF outlines...")
-            controls.window.config(cursor="watch")
-            controls.auto_detect_button.config(state="disabled")
-            controls.export_button.config(state="disabled")
-            controls.open_pdf_button.config(state="disabled")
-            controls.add_button.config(state="disabled")
-            set_correlation_id(
-                new_correlation_id(settings.app.correlation_id_prefix, location),
-                location,
-            )
-            token.check(location)
-            detect_deadline = Deadline(settings.io.operation_timeout_seconds)
-            chapters = detect_chapters_from_outlines(
-                pdf_path,
-                detect_deadline,
-                token,
-                settings.retry,
-                settings.io,
-                location,
-            )
-            if not chapters:
-                if settings.detection.enable_toc_fallback:
-                    default_toc_page = 1
-                    if controls.pdf_preview is not None:
-                        default_toc_page = controls.pdf_preview.get_current_page()
-                    should_try = messagebox.askyesno(
-                        "No PDF Outlines Found",
-                        "This PDF does not contain usable outline metadata.\n\n"
-                        "Try TOC-based detection as a fallback?",
+            if not _confirm_overwrite_if_needed(controls, grid_widget):
+                return
+            with _busy_action(
+                controls,
+                grid_widget,
+                status_text="Detecting chapters...",
+                disable_close=False,
+                location=location,
+            ):
+                _prepare_action(controls)
+                toc_hint_page = (
+                    controls.pdf_preview.get_current_page()
+                    if controls.pdf_preview is not None
+                    else None
+                )
+                detect_deadline = Deadline(settings.io.operation_timeout_seconds)
+                report = detect_chapters_in_reader(
+                    reader=reader,
+                    total_pages=total_pages,
+                    pdf_path=pdf_path,
+                    deadline=detect_deadline,
+                    token=token,
+                    detection_config=settings.detection,
+                    request=DetectionRequest(toc_hint_page=toc_hint_page, force_strategy=None),
+                    location=location,
+                )
+                if not report.chapters:
+                    messagebox.showinfo(
+                        settings.ui.no_chapters_title,
+                        format_detection_report(report),
                         parent=controls.window,
                     )
-                    if should_try:
-                        toc_page = default_toc_page
-                        if controls.pdf_preview is None:
-                            selected = _prompt_for_toc_page(default_toc_page)
-                            if selected is None:
-                                return
-                            toc_page = selected
-                        controls.status_label.config(
-                            text=f"Detecting chapters from TOC page {toc_page}..."
-                        )
-                        if _run_toc_fallback(toc_page):
-                            return
-                        messagebox.showinfo(
-                            settings.ui.no_chapters_title,
-                            "No chapters were detected from the selected TOC page.\n\n"
-                            "Navigate to the Table of Contents and try again.",
-                            parent=controls.window,
-                        )
-                        return
+                    return
+                prefill_rows = _chapters_to_prefill(report.chapters, page_labels)
+                grid_widget.prefill(prefill_rows)
+                _update_review(report.chapters)
                 messagebox.showinfo(
-                    settings.ui.no_chapters_title,
-                    settings.ui.no_chapters_message,
+                    "Detection Result",
+                    format_detection_report(report),
                     parent=controls.window,
                 )
-                return
-            prefill_rows = _chapters_to_prefill(chapters, page_labels)
-            grid_widget.prefill(prefill_rows)
-            controls.status_label.config(text=settings.ui.status_hint)
+        except CancellationError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "ui_action_cancelled",
+                format_error_message(location, str(exc)),
+                {"action": "auto_detect", "reason": str(exc)},
+            )
         except ChapterSplitterError as exc:
             messagebox.showerror(settings.ui.error_dialog_title, str(exc))
             log_event(
@@ -354,19 +511,12 @@ def _run_workflow(
                 format_error_message(location, str(exc)),
                 {"reason": str(exc)},
             )
-        finally:
-            if controls.window.winfo_exists():
-                controls.window.config(cursor="")
-                controls.auto_detect_button.config(state="normal")
-                controls.export_button.config(state="normal")
-                controls.open_pdf_button.config(state="normal")
-                controls.add_button.config(state="normal")
 
     def do_detect_from_toc_page(toc_page: int) -> None:
         """Fallback detect chapters from a TOC page selected by the user.
 
         Summary:
-            Parse TOC text from the specified page and prefill the grid when outlines are missing.
+            Run unified detection forced to TOC strategy starting at the provided page.
         Inputs:
             - toc_page: 1-based page number where the TOC starts.
         Outputs:
@@ -376,9 +526,9 @@ def _run_workflow(
         Error handling:
             Shows an error dialog and logs an event when detection fails.
         Ties to other methods:
-            Uses detect_chapters_from_toc_page and _chapters_to_prefill.
+            Uses detect_chapters_in_reader and _chapters_to_prefill.
         Why this exists:
-            Some PDFs lack outlines; TOC parsing offers a manual, visual fallback for detection.
+            A visual TOC picker gives the user control when outlines are missing.
         """
         if not action_limiter.allow():
             return
@@ -391,47 +541,51 @@ def _run_workflow(
                 parent=controls.window,
             )
             return
-        if settings.ui.confirm_auto_detect_overwrite and grid_widget.has_defined_ranges():
-            should_replace = messagebox.askyesno(
-                settings.ui.confirm_auto_detect_overwrite_title,
-                settings.ui.confirm_auto_detect_overwrite_message,
-                parent=controls.window,
-            )
-            if not should_replace:
-                return
         try:
-            controls.status_label.config(text=f"Detecting chapters from TOC page {toc_page}...")
-            controls.window.config(cursor="watch")
-            controls.auto_detect_button.config(state="disabled")
-            controls.export_button.config(state="disabled")
-            controls.open_pdf_button.config(state="disabled")
-            controls.add_button.config(state="disabled")
-            set_correlation_id(
-                new_correlation_id(settings.app.correlation_id_prefix, location),
-                location,
-            )
-            token.check(location)
-            detect_deadline = Deadline(settings.io.operation_timeout_seconds)
-            chapters = detect_chapters_from_toc_page(
-                reader=reader,
-                toc_start_page=toc_page,
-                total_pages=total_pages,
-                detection=settings.detection,
-                deadline=detect_deadline,
-                token=token,
+            if not _confirm_overwrite_if_needed(controls, grid_widget):
+                return
+            with _busy_action(
+                controls,
+                grid_widget,
+                status_text=f"Detecting chapters from TOC page {toc_page}...",
+                disable_close=False,
                 location=location,
-            )
-            if not chapters:
+            ):
+                _prepare_action(controls)
+                detect_deadline = Deadline(settings.io.operation_timeout_seconds)
+                report = detect_chapters_in_reader(
+                    reader=reader,
+                    total_pages=total_pages,
+                    deadline=detect_deadline,
+                    token=token,
+                    detection_config=settings.detection,
+                    request=DetectionRequest(toc_hint_page=toc_page, force_strategy="toc"),
+                    pdf_path=pdf_path,
+                    location=location,
+                )
+                if not report.chapters:
+                    messagebox.showinfo(
+                        settings.ui.no_chapters_title,
+                        format_detection_report(report),
+                        parent=controls.window,
+                    )
+                    return
+                prefill_rows = _chapters_to_prefill(report.chapters, page_labels)
+                grid_widget.prefill(prefill_rows)
+                _update_review(report.chapters)
                 messagebox.showinfo(
-                    settings.ui.no_chapters_title,
-                    "No chapters were detected from the selected TOC page.\n\n"
-                    "Navigate to the Table of Contents and try again.",
+                    "Detection Result",
+                    format_detection_report(report),
                     parent=controls.window,
                 )
-                return
-            prefill_rows = _chapters_to_prefill(chapters, page_labels)
-            grid_widget.prefill(prefill_rows)
-            controls.status_label.config(text=settings.ui.status_hint)
+        except CancellationError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "ui_action_cancelled",
+                format_error_message(location, str(exc)),
+                {"action": "toc_detect", "reason": str(exc), "toc_page": toc_page},
+            )
         except ChapterSplitterError as exc:
             messagebox.showerror(settings.ui.error_dialog_title, str(exc))
             log_event(
@@ -441,13 +595,6 @@ def _run_workflow(
                 format_error_message(location, str(exc)),
                 {"reason": str(exc), "toc_page": toc_page},
             )
-        finally:
-            if controls.window.winfo_exists():
-                controls.window.config(cursor="")
-                controls.auto_detect_button.config(state="normal")
-                controls.export_button.config(state="normal")
-                controls.open_pdf_button.config(state="normal")
-                controls.add_button.config(state="normal")
 
     def do_export() -> None:
         """Export the defined chapters to PDF files.
@@ -469,65 +616,71 @@ def _run_workflow(
             return
         controls, _win_handle, grid_widget = _require_controls()
         try:
-            controls.status_label.config(text="Exporting chapters...")
-            controls.window.config(cursor="watch")
-            controls.auto_detect_button.config(state="disabled")
-            controls.export_button.config(state="disabled")
-            controls.open_pdf_button.config(state="disabled")
-            controls.add_button.config(state="disabled")
-            controls.close_button.config(state="disabled")
-            set_correlation_id(
-                new_correlation_id(settings.app.correlation_id_prefix, location),
-                location,
-            )
-            token.check(location)
-            export_deadline = Deadline(settings.io.operation_timeout_seconds)
-            chapters = grid_widget.get_chapters()
-            outputs = split_pdf_into_chapters(
-                pdf_path=pdf_path,
-                chapters=chapters,
-                page_offset=settings.io.page_offset,
-                deadline=export_deadline,
-                token=token,
-                retry_config=settings.retry,
-                validation_config=settings.validation,
-                io_config=settings.io,
+            with _busy_action(
+                controls,
+                grid_widget,
+                status_text="Exporting chapters...",
+                disable_close=True,
                 location=location,
-            )
-            output_dir = pdf_path.parent / f"{pdf_path.stem}{settings.io.output_dir_suffix}"
-            if settings.ui.prompt_open_output_dir_after_export and settings.io.open_viewer:
-                should_open = messagebox.askyesno(
-                    settings.ui.open_output_dir_prompt_title,
-                    settings.ui.open_output_dir_prompt_message_template.format(
-                        count=len(outputs),
-                        output_dir=str(output_dir),
-                    ),
+            ):
+                _prepare_action(controls)
+                export_deadline = Deadline(settings.io.operation_timeout_seconds)
+                chapters = grid_widget.get_chapters()
+                outputs = split_pdf_into_chapters(
+                    pdf_path=pdf_path,
+                    chapters=chapters,
+                    page_offset=settings.io.page_offset,
+                    deadline=export_deadline,
+                    token=token,
+                    retry_config=settings.retry,
+                    validation_config=settings.validation,
+                    io_config=settings.io,
+                    location=location,
                 )
-                if should_open:
-                    retry_with_backoff(
-                        lambda: open_path_in_default_viewer(
-                            output_dir,
-                            settings.io.viewer_timeout_seconds,
-                            viewer_limiter,
-                            location,
+                output_dir = pdf_path.parent / f"{pdf_path.stem}{settings.io.output_dir_suffix}"
+                if settings.ui.prompt_open_output_dir_after_export and settings.io.open_viewer:
+                    should_open = messagebox.askyesno(
+                        settings.ui.open_output_dir_prompt_title,
+                        settings.ui.open_output_dir_prompt_message_template.format(
+                            count=len(outputs),
+                            output_dir=str(output_dir),
                         ),
-                        exceptions=(IoError,),
-                        max_attempts=settings.retry.max_attempts,
-                        initial_delay_seconds=settings.retry.initial_delay_seconds,
-                        max_delay_seconds=settings.retry.max_delay_seconds,
-                        jitter_ratio=settings.retry.jitter_ratio,
-                        location=location,
-                        token=token,
+                        parent=controls.window,
                     )
-            else:
-                messagebox.showinfo(
-                    settings.ui.success_dialog_title,
-                    settings.ui.success_dialog_message_template.format(
-                        count=len(outputs),
-                        output_dir=str(output_dir),
-                    ),
-                )
-            root.destroy()
+                    if should_open:
+                        retry_with_backoff(
+                            lambda: open_path_in_default_viewer(
+                                output_dir,
+                                settings.io.viewer_timeout_seconds,
+                                viewer_limiter,
+                                location,
+                            ),
+                            exceptions=(IoError,),
+                            max_attempts=settings.retry.max_attempts,
+                            initial_delay_seconds=settings.retry.initial_delay_seconds,
+                            max_delay_seconds=settings.retry.max_delay_seconds,
+                            jitter_ratio=settings.retry.jitter_ratio,
+                            location=location,
+                            token=token,
+                        )
+                else:
+                    messagebox.showinfo(
+                        settings.ui.success_dialog_title,
+                        settings.ui.success_dialog_message_template.format(
+                            count=len(outputs),
+                            output_dir=str(output_dir),
+                        ),
+                        parent=controls.window,
+                    )
+                root.destroy()
+        except CancellationError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "ui_action_cancelled",
+                format_error_message(location, str(exc)),
+                {"action": "export", "reason": str(exc)},
+            )
         except ChapterSplitterError as exc:
             messagebox.showerror(settings.ui.error_dialog_title, str(exc))
             log_event(
@@ -537,14 +690,6 @@ def _run_workflow(
                 format_error_message(location, str(exc)),
                 {"reason": str(exc)},
             )
-        finally:
-            if controls.window.winfo_exists():
-                controls.window.config(cursor="")
-                controls.auto_detect_button.config(state="normal")
-                controls.export_button.config(state="normal")
-                controls.open_pdf_button.config(state="normal")
-                controls.add_button.config(state="normal")
-                controls.close_button.config(state="normal")
 
     def do_open_pdf() -> None:
         """Open the selected PDF in the system viewer.
@@ -574,7 +719,8 @@ def _run_workflow(
             return
         controls, _win_handle, _grid_widget = _require_controls()
         try:
-            controls.status_label.config(text="Opening PDF...")
+            _set_status_text(controls, "Opening PDF...")
+            _prepare_action(controls)
             retry_with_backoff(
                 lambda: open_in_default_viewer(
                     pdf_path,
@@ -599,9 +745,20 @@ def _run_workflow(
                 format_error_message(location, str(exc)),
                 {"reason": str(exc)},
             )
+        except CancellationError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "ui_action_cancelled",
+                format_error_message(location, str(exc)),
+                {"action": "open_pdf", "reason": str(exc)},
+            )
         finally:
             if controls.window.winfo_exists():
-                controls.status_label.config(text=settings.ui.status_hint)
+                if controls.status_label is not None:
+                    controls.status_label.config(text=settings.ui.status_hint)
+                else:
+                    controls.window.title(settings.ui.chapter_window_title)
 
     ui_controls = build_chapter_window(
         root,
@@ -617,21 +774,63 @@ def _run_workflow(
     grid = ui_controls.grid
     ui_controls.export_button.config(command=do_export)
     ui_controls.open_pdf_button.config(command=do_open_pdf)
+    review_state: list[ChapterDefinition] = []
+
+    def _update_review(chapters: Sequence[ChapterDefinition]) -> None:
+        """Update the review gallery from a validated chapter list.
+
+        Summary:
+            Populate the review tab with the provided chapters and optionally select the tab.
+        Inputs:
+            - chapters: ChapterDefinition sequence to display.
+        Outputs:
+            - None.
+        Side effects:
+            Updates the review widget and may switch the notebook tab.
+        Error handling:
+            Raises UiError when review updates fail.
+        Ties to other methods:
+            Called after successful chapter detection and during refresh actions.
+        Why this exists:
+            The review gallery is derived state that should stay in sync with the latest detection.
+        """
+        nonlocal review_state
+        review_state = list(chapters)
+        if ui_controls.chapter_review is not None:
+            ui_controls.chapter_review.set_chapters(review_state)
+            if (
+                settings.ui.auto_show_review_after_detect
+                and ui_controls.right_notebook is not None
+                and ui_controls.review_tab is not None
+            ):
+                ui_controls.right_notebook.select(ui_controls.review_tab)
+
+    def _safe_apply(action: str, fn: Callable[[], None]) -> None:
+        try:
+            if is_busy:
+                return
+            token.check(location)
+            fn()
+        except CancellationError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "ui_action_cancelled",
+                format_error_message(location, str(exc)),
+                {"action": action, "reason": str(exc)},
+            )
+        except ChapterSplitterError as exc:
+            messagebox.showerror(settings.ui.error_dialog_title, str(exc))
+            log_event(
+                logger,
+                logging.ERROR,
+                "ui_action_failed",
+                format_error_message(location, str(exc)),
+                {"action": action, "reason": str(exc)},
+            )
+
     if ui_controls.pdf_preview is not None:
         grid_widget = ui_controls.grid
-
-        def _safe_apply(action: str, fn: Callable[[], None]) -> None:
-            try:
-                fn()
-            except ChapterSplitterError as exc:
-                messagebox.showerror(settings.ui.error_dialog_title, str(exc))
-                log_event(
-                    logger,
-                    logging.ERROR,
-                    "pdf_preview_action_failed",
-                    format_error_message(location, str(exc)),
-                    {"action": action, "reason": str(exc)},
-                )
 
         ui_controls.pdf_preview.set_actions(
             PdfPreviewActions(
@@ -650,6 +849,84 @@ def _run_workflow(
                 detect_chapters_at_page=lambda page: _safe_apply(
                     "detect_chapters_at_page",
                     lambda: do_detect_from_toc_page(page),
+                ),
+            )
+        )
+
+    if ui_controls.chapter_review is not None:
+        grid_widget = ui_controls.grid
+        review_widget = ui_controls.chapter_review
+
+        def _refresh_review_from_grid() -> None:
+            chapters = grid_widget.get_chapters()
+            _update_review(chapters)
+
+        def _jump_to_chapter(index: int) -> None:
+            if index < 0:
+                return
+            if index >= len(review_state):
+                _refresh_review_from_grid()
+            if index >= len(review_state):
+                return
+            chapter = review_state[index]
+            grid_widget.set_active_row_index(index, location)
+            if ui_controls.pdf_preview is not None:
+                ui_controls.pdf_preview.go_to_page(chapter.start_page)
+
+        def _adjust_start(index: int, delta: int) -> None:
+            if index < 0:
+                return
+            if index >= len(review_state):
+                _refresh_review_from_grid()
+            if index >= len(review_state):
+                return
+            chapter = review_state[index]
+            new_start = max(1, min(chapter.end_page, chapter.start_page + int(delta)))
+            grid_widget.set_row_start_at_page(index, new_start, location)
+            updated = ChapterDefinition(
+                title=chapter.title,
+                start_page=new_start,
+                end_page=chapter.end_page,
+            )
+            review_state[index] = updated
+            review_widget.update_chapter(index, updated)
+            if ui_controls.pdf_preview is not None:
+                ui_controls.pdf_preview.go_to_page(new_start)
+
+        def _adjust_end(index: int, delta: int) -> None:
+            if index < 0:
+                return
+            if index >= len(review_state):
+                _refresh_review_from_grid()
+            if index >= len(review_state):
+                return
+            chapter = review_state[index]
+            new_end = max(chapter.start_page, min(total_pages, chapter.end_page + int(delta)))
+            grid_widget.set_row_end_at_page(index, new_end, location)
+            updated = ChapterDefinition(
+                title=chapter.title,
+                start_page=chapter.start_page,
+                end_page=new_end,
+            )
+            review_state[index] = updated
+            review_widget.update_chapter(index, updated)
+
+        ui_controls.chapter_review.set_actions(
+            ChapterReviewActions(
+                jump_to_chapter=lambda idx: _safe_apply(
+                    "review_jump", lambda: _jump_to_chapter(idx)
+                ),
+                adjust_start=lambda idx, delta: _safe_apply(
+                    "review_adjust_start",
+                    lambda: _adjust_start(idx, delta),
+                ),
+                adjust_end=lambda idx, delta: _safe_apply(
+                    "review_adjust_end",
+                    lambda: _adjust_end(idx, delta),
+                ),
+                refresh_from_grid=lambda: _safe_apply(
+                    "review_refresh",
+                    _refresh_review_from_grid,
                 ),
             )
         )
