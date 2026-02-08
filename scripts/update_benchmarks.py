@@ -58,6 +58,10 @@ def main() -> int:
         output_collision_max_suffix=settings.io.output_collision_max_suffix,
         fsync_writes=settings.io.fsync_writes,
         page_offset=settings.io.page_offset,
+        infer_page_offset_from_labels=settings.io.infer_page_offset_from_labels,
+        infer_page_offset_min_sequential_numeric_labels=(
+            settings.io.infer_page_offset_min_sequential_numeric_labels
+        ),
     )
     token = CancellationToken()
 
@@ -70,7 +74,7 @@ def main() -> int:
         outputs = split_pdf_into_chapters(
             pdf_path=pdf_path,
             chapters=chapters,
-            page_offset=settings.io.page_offset,
+            page_offset=None,
             deadline=deadline,
             token=token,
             retry_config=settings.retry,
@@ -97,6 +101,7 @@ def main() -> int:
             settings.retry,
             settings.io,
             "scripts.update_benchmarks",
+            detection_config=settings.detection,
         )
         end = time.perf_counter()
         detect_timings.append(end - start)

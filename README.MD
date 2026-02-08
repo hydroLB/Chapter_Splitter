@@ -10,6 +10,14 @@ source .venv/bin/activate
 pip install -r requirements.lock
 ```
 
+Optional extras:
+
+- Embedded preview and review rendering (PyMuPDF):
+
+```bash
+pip install -e '.[preview]'
+```
+
 Development tools and quality gates:
 
 ```bash
@@ -25,10 +33,28 @@ GUI:
 chapter-splitter gui
 ```
 
+Inside the GUI, use:
+
+- `Import TOML` to load an existing `chapters.toml` and prefill the grid
+- `Export TOML` to write the current chapter list to a file
+- `Save Session` to export chapters plus `[session]` metadata for repeat runs
+
 CLI split:
 
 ```bash
 chapter-splitter split --pdf path/to/book.pdf --chapters path/to/chapters.toml
+```
+
+One-off overrides (no config file):
+
+```bash
+chapter-splitter split --pdf path/to/book.pdf --chapters path/to/chapters.toml --output-dir out --collision-policy suffix --page-offset 0
+```
+
+CLI detect (generate a starter `chapters.toml` from outlines or TOC):
+
+```bash
+chapter-splitter detect --pdf path/to/book.pdf --strategy auto --out chapters.toml
 ```
 
 Example `chapters.toml`:
@@ -74,6 +100,11 @@ Key sections to know:
 - `validation` defines chapter limits and uniqueness rules
 - `performance` sets benchmark budgets
 
+Useful `io` knobs:
+
+- `io.page_offset` aligns user-entered page numbers with PDF indices
+- `io.infer_page_offset_from_labels` can auto-infer an offset from PDF page labels when present (see also `io.infer_page_offset_min_sequential_numeric_labels`)
+
 ## Testing
 
 Unit, integration, and end to end tests:
@@ -102,7 +133,7 @@ python scripts/profile_split.py
 - Structured logging, redaction, and correlation IDs are in `Chapter_Splitter/chapter_splitter/observability/logging.py`
 - PDF outline detection is implemented in `Chapter_Splitter/chapter_splitter/pdf/detection/outlines.py`
 - The split pipeline is in `Chapter_Splitter/chapter_splitter/pdf/splitting/splitter.py` and uses strict validation from `Chapter_Splitter/chapter_splitter/core/validation.py`
-- Tkinter workflow and UI widgets are in `Chapter_Splitter/chapter_splitter/ui/tk/workflow.py` and `Chapter_Splitter/chapter_splitter/ui/tk/widgets/chapter_grid/frame.py`
+- Qt GUI workflow and widgets are in `Chapter_Splitter/chapter_splitter/ui/qt/workflow.py` and `Chapter_Splitter/chapter_splitter/ui/qt/main_window.py`
 
 ## Implementation Notes
 
@@ -123,6 +154,13 @@ Build:
 
 ```bash
 python -m build
+```
+
+Desktop bundling (PyInstaller):
+
+```bash
+pip install -e '.[bundle]'
+python scripts/bundle_pyinstaller.py --target gui
 ```
 
 Release process:

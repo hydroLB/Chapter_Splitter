@@ -38,6 +38,8 @@ class IOConfig:
         output_collision_max_suffix: int,
         fsync_writes: bool,
         page_offset: int,
+        infer_page_offset_from_labels: bool,
+        infer_page_offset_min_sequential_numeric_labels: int,
     ) -> None:
         """Initialize IO configuration.
 
@@ -57,6 +59,10 @@ class IOConfig:
               suffix.
             - fsync_writes: Whether to flush output to disk before renaming.
             - page_offset: Default page offset for splits.
+            - infer_page_offset_from_labels: Whether to infer an effective page offset from PDF
+              page labels when possible.
+            - infer_page_offset_min_sequential_numeric_labels: Minimum number of sequential numeric
+              labels required to accept an inferred offset.
         Outputs:
             - None.
         Side Effects:
@@ -74,6 +80,10 @@ class IOConfig:
         self.output_collision_max_suffix = output_collision_max_suffix
         self.fsync_writes = fsync_writes
         self.page_offset = page_offset
+        self.infer_page_offset_from_labels = infer_page_offset_from_labels
+        self.infer_page_offset_min_sequential_numeric_labels = (
+            infer_page_offset_min_sequential_numeric_labels
+        )
 
     def validate(self, location: str) -> None:
         """Validate IO configuration.
@@ -142,5 +152,13 @@ class IOConfig:
             raise ConfigurationError(
                 format_error_message(
                     error_location, f"io.page_offset must be non negative.{context}"
+                )
+            )
+        if self.infer_page_offset_min_sequential_numeric_labels < 1:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    "io.infer_page_offset_min_sequential_numeric_labels must be at least 1."
+                    f"{context}",
                 )
             )

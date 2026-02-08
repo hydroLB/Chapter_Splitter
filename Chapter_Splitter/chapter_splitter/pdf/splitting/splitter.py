@@ -5,10 +5,11 @@ from __future__ import annotations
 import os
 import secrets
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, cast
+from typing import BinaryIO, Literal, cast
 
 from ...config.schema import IOConfig, RetryConfig, ValidationConfig
 from ...core.errors import IoError, PdfProcessingError, ValidationError, format_error_message
@@ -18,7 +19,40 @@ from ...core.validation import validate_chapters
 from ...utils.filenames import safe_filename
 from ...utils.timing import Deadline
 from ..io.dependencies import PdfWriter
+from ..io.labels import extract_page_labels, infer_page_offset_from_labels
 from ..io.loader import get_total_pages, load_reader
+
+
+@dataclass(frozen=True, slots=True)
+class ChapterExportProgress:
+    """Progress event emitted during chapter export.
+
+    Summary:
+        Provide structured per-chapter progress so UI layers can display progress without parsing
+        log text.
+    Inputs:
+        - phase: Progress phase (start or complete).
+        - chapter: Chapter definition being exported.
+        - index: 1-based chapter index.
+        - total: Total chapter count.
+        - output_path: Output PDF path for the chapter.
+    Outputs:
+        - None.
+    Side effects:
+        None.
+    Error handling:
+        None.
+    Ties to other methods:
+        Emitted by split_pdf_into_chapters when on_progress is provided.
+    Why this exists:
+        UI progress should be deterministic and testable without coupling to internal loops.
+    """
+
+    phase: Literal["start", "complete"]
+    chapter: ChapterDefinition
+    index: int
+    total: int
+    output_path: Path
 
 
 def _format_collision_hint(io_config: IOConfig) -> str:
@@ -292,13 +326,16 @@ def _validate_offset_ranges(
 def split_pdf_into_chapters(
     pdf_path: Path,
     chapters: list[ChapterDefinition],
-    page_offset: int,
+    page_offset: int | None,
     deadline: Deadline,
     token: CancellationToken,
     retry_config: RetryConfig,
     validation_config: ValidationConfig,
     io_config: IOConfig,
     location: str,
+    output_dir: Path | None = None,
+    *,
+    on_progress: Callable[[ChapterExportProgress], None] | None = None,
 ) -> list[ChapterOutput]:
     """Split a PDF into chapter files.
 
@@ -309,13 +346,18 @@ def split_pdf_into_chapters(
     Inputs:
         - pdf_path: Path to the source PDF.
         - chapters: List of ChapterDefinition objects.
-        - page_offset: Offset applied when converting to zero based indices.
+        - page_offset: Optional offset applied when converting to zero based indices. When not
+          provided, the configured io.page_offset is used and may be inferred from PDF page labels
+          when enabled.
         - deadline: Deadline tracker for timeout enforcement.
         - token: Cancellation token for graceful shutdown.
         - retry_config: Retry policy for PDF loading.
         - validation_config: Validation rules for chapters.
         - io_config: IO configuration for output behavior.
         - location: Fully qualified module and method name.
+        - output_dir: Optional output directory override. When not provided, the output directory
+          is derived from the PDF stem and io.output_dir_suffix.
+        - on_progress: Optional progress callback receiving per-chapter start/complete events.
     Outputs:
         - List of ChapterOutput objects with exported paths.
     Side Effects:
@@ -332,6 +374,25 @@ def split_pdf_into_chapters(
     total_pages = get_total_pages(reader, location)
     deadline.check(location)
 
+    effective_page_offset = page_offset if page_offset is not None else io_config.page_offset
+    if (
+        page_offset is None
+        and io_config.page_offset == 0
+        and io_config.infer_page_offset_from_labels
+    ):
+        try:
+            labels = extract_page_labels(reader, location)
+        except PdfProcessingError:
+            labels = None
+        if labels:
+            inferred = infer_page_offset_from_labels(
+                labels,
+                min_sequential_numeric_labels=io_config.infer_page_offset_min_sequential_numeric_labels,
+                location=location,
+            )
+            if inferred is not None:
+                effective_page_offset = inferred
+
     validated = validate_chapters(
         chapters=chapters,
         total_pages=total_pages,
@@ -342,21 +403,24 @@ def split_pdf_into_chapters(
         location=location,
     )
 
-    output_dir = pdf_path.parent / f"{pdf_path.stem}{io_config.output_dir_suffix}"
+    effective_output_dir = output_dir or (
+        pdf_path.parent / f"{pdf_path.stem}{io_config.output_dir_suffix}"
+    )
     try:
-        output_dir.mkdir(exist_ok=True)
+        effective_output_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         raise IoError(
             format_error_message(
                 error_location,
-                f"Unable to create output directory: {output_dir}.{context}",
+                f"Unable to create output directory: {effective_output_dir}.{context}",
             )
         ) from exc
-    if not output_dir.is_dir():
+    if not effective_output_dir.is_dir():
         raise IoError(
             format_error_message(
                 error_location,
-                f"Output directory path exists but is not a directory: {output_dir}.{context}",
+                "Output directory path exists but is not a directory: "
+                f"{effective_output_dir}.{context}",
             )
         )
 
@@ -364,15 +428,26 @@ def split_pdf_into_chapters(
     _validate_offset_ranges(
         validated,
         total_pages=total_pages,
-        page_offset=page_offset,
+        page_offset=effective_page_offset,
         location=location,
     )
-    out_paths = _resolve_output_paths(validated, output_dir, io_config, location)
+    out_paths = _resolve_output_paths(validated, effective_output_dir, io_config, location)
+    total_chapters = len(validated)
 
-    for chapter, out_path in zip(validated, out_paths, strict=True):
+    for idx, (chapter, out_path) in enumerate(zip(validated, out_paths, strict=True), start=1):
         token.check(location)
         deadline.check(location)
-        page_range = chapter.to_page_range(page_offset, location)
+        if on_progress is not None:
+            on_progress(
+                ChapterExportProgress(
+                    phase="start",
+                    chapter=chapter,
+                    index=idx,
+                    total=total_chapters,
+                    output_path=out_path,
+                )
+            )
+        page_range = chapter.to_page_range(effective_page_offset, location)
         writer = PdfWriter()
         try:
             for page_idx in range(page_range.start_index, page_range.end_index + 1):
@@ -396,4 +471,14 @@ def split_pdf_into_chapters(
             location=location,
         )
         outputs.append(ChapterOutput(chapter=chapter, output_path=out_path))
+        if on_progress is not None:
+            on_progress(
+                ChapterExportProgress(
+                    phase="complete",
+                    chapter=chapter,
+                    index=idx,
+                    total=total_chapters,
+                    output_path=out_path,
+                )
+            )
     return outputs

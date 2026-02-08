@@ -48,6 +48,8 @@ def _valid_io() -> IOConfig:
         output_collision_max_suffix=10,
         fsync_writes=False,
         page_offset=0,
+        infer_page_offset_from_labels=False,
+        infer_page_offset_min_sequential_numeric_labels=3,
     )
 
 
@@ -85,6 +87,10 @@ def _valid_detection() -> DetectionConfig:
         toc_ignore_title_regexes=(r"(?i)^(table of contents|contents)$",),
         toc_min_entries=2,
         toc_max_entries=100,
+        outline_ignore_title_regexes=(),
+        outline_min_depth=0,
+        outline_merge_tiny_max_pages=0,
+        outline_merge_tiny_title_joiner=" + ",
     )
 
 
@@ -94,8 +100,6 @@ def _valid_ui() -> UIConfig:
         window_height=600,
         window_offset_x=10,
         window_offset_y=10,
-        pdf_info_template="PDF: {pdf} ({pages})",
-        pdf_info_wraplength=200,
         open_pdf_button_label="Open PDF",
         close_button_label="Close",
         row_limit=10,
@@ -144,6 +148,7 @@ def _valid_ui() -> UIConfig:
         pdf_preview_zoom=1.0,
         pdf_preview_fit_mode="none",
         pdf_preview_fit_padding_px=0,
+        pdf_preview_continuous_scroll=True,
         pdf_preview_supersample=1,
         pdf_preview_min_zoom=0.25,
         pdf_preview_max_zoom=4.0,
@@ -153,6 +158,7 @@ def _valid_ui() -> UIConfig:
         chapter_review_thumbnail_width=120,
         chapter_review_columns=1,
         auto_show_review_after_detect=False,
+        auto_detect_on_open=False,
     )
 
 
@@ -277,6 +283,8 @@ def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
             output_collision_max_suffix=10,
             fsync_writes=False,
             page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
         ).validate("tests.unit.test_config_schema_validation")
     with pytest.raises(ConfigurationError):
         RetryConfig(

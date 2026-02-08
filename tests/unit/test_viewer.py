@@ -39,7 +39,11 @@ def test_open_path_in_default_viewer_times_out(
         time.sleep(0.05)
         return True
 
-    monkeypatch.setattr("chapter_splitter.utils.viewer.webbrowser.open", _slow_open)
+    def _slow_native(_path: Path, _location: str) -> bool:  # noqa: ARG001
+        time.sleep(0.05)
+        return True
+
+    monkeypatch.setattr("chapter_splitter.utils.viewer._open_path_native", _slow_native)
 
     with pytest.raises(IoError):
         open_path_in_default_viewer(
@@ -78,7 +82,11 @@ def test_open_path_in_default_viewer_rejects_non_finite_timeout(
     def _open_should_not_run(_url: str, *, new: int, autoraise: bool) -> bool:  # noqa: ARG001
         raise AssertionError("webbrowser.open should not be called for invalid timeout values")
 
+    def _native_should_not_run(_path: Path, _location: str) -> bool:  # noqa: ARG001
+        raise AssertionError("_open_path_native should not be called for invalid timeout values")
+
     monkeypatch.setattr("chapter_splitter.utils.viewer.webbrowser.open", _open_should_not_run)
+    monkeypatch.setattr("chapter_splitter.utils.viewer._open_path_native", _native_should_not_run)
 
     with pytest.raises(IoError):
         open_path_in_default_viewer(

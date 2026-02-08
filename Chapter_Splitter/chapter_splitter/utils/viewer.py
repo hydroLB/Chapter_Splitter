@@ -3,12 +3,74 @@
 from __future__ import annotations
 
 import math
+import os
+import subprocess
+import sys
 import threading
 import webbrowser
 from pathlib import Path
+from shutil import which
 
 from ..core.errors import IoError, format_error_message
 from .rate_limit import RateLimiter
+
+
+def _open_path_native(path: Path, location: str) -> bool:
+    """Open a path using OS-native open mechanisms.
+
+    Summary:
+        Prefer OS-specific open tools over webbrowser.open so directories open in Finder/Explorer/
+        file managers consistently across platforms.
+    Inputs:
+        - path: Path to open.
+        - location: Fully qualified module and method name.
+    Outputs:
+        - True when a launch attempt was made, otherwise False.
+    Side effects:
+        Launches a subprocess or invokes os.startfile (Windows).
+    Error handling:
+        Returns False when no known tool is available; raises OSError for process launch failures.
+    Ties to other methods:
+        Used by open_path_in_default_viewer.
+    Why this exists:
+        webbrowser.open can open directory URIs in a browser instead of the OS file manager.
+    """
+    if sys.platform == "win32":
+        # startfile uses ShellExecute and is the most native option on Windows.
+        os.startfile(str(path))  # type: ignore[attr-defined]
+        return True
+
+    if sys.platform == "darwin":
+        subprocess.Popen(
+            ["open", str(path)],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+
+    opener = which("xdg-open")
+    if opener is not None:
+        subprocess.Popen(
+            [opener, str(path)],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+
+    gio = which("gio")
+    if gio is not None:
+        subprocess.Popen(
+            [gio, "open", str(path)],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+
+    # Fall back to webbrowser when no native opener is available.
+    return False
 
 
 def open_path_in_default_viewer(
@@ -65,7 +127,11 @@ def open_path_in_default_viewer(
     def _launch_viewer() -> None:
         nonlocal opened, worker_error
         try:
-            opened = webbrowser.open(path.resolve().as_uri(), new=0, autoraise=True)
+            resolved = path.resolve()
+            if _open_path_native(resolved, location):
+                opened = True
+                return
+            opened = webbrowser.open(resolved.as_uri(), new=0, autoraise=True)
         except (OSError, ValueError) as exc:
             worker_error = exc
 

@@ -139,7 +139,14 @@ def detect_chapters_in_reader(
     force = request.force_strategy
     toc_hint = request.toc_hint_page
 
-    outline_entries = extract_outline_entries(reader, deadline, token, location)
+    outline_entries = extract_outline_entries(
+        reader,
+        deadline,
+        token,
+        location,
+        outline_min_depth=detection_config.outline_min_depth,
+        outline_ignore_title_regexes=detection_config.outline_ignore_title_regexes,
+    )
 
     if force == "outlines":
         chapters = detect_chapters_from_outlines_reader(
@@ -149,6 +156,8 @@ def detect_chapters_in_reader(
             token=token,
             location=location,
             entries=outline_entries,
+            outline_merge_tiny_max_pages=detection_config.outline_merge_tiny_max_pages,
+            outline_merge_tiny_title_joiner=detection_config.outline_merge_tiny_title_joiner,
         )
         confidence = _confidence_for_outlines(outline_entries, chapters)
         if not chapters:
@@ -212,6 +221,8 @@ def detect_chapters_in_reader(
         token=token,
         location=location,
         entries=outline_entries,
+        outline_merge_tiny_max_pages=detection_config.outline_merge_tiny_max_pages,
+        outline_merge_tiny_title_joiner=detection_config.outline_merge_tiny_title_joiner,
     )
     if chapters_outlines:
         confidence = _confidence_for_outlines(outline_entries, chapters_outlines)

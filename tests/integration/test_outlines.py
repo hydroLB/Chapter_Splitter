@@ -36,6 +36,7 @@ def test_detect_chapters_from_outlines(outlined_pdf: Path) -> None:
         settings.retry,
         settings.io,
         "tests.integration.test_outlines",
+        detection_config=settings.detection,
     )
     assert len(chapters) >= 1
     assert chapters[0].start_page == 1

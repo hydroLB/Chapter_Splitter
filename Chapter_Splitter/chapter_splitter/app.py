@@ -1,4 +1,20 @@
-"""GUI entry point for the Chapter Splitter application."""
+"""GUI entry point for the Chapter Splitter application.
+
+Summary:
+    Provide the desktop application entrypoint and launch the configured GUI workflow.
+Inputs:
+    - None.
+Outputs:
+    - None.
+Side effects:
+    Configures logging, registers signal handlers, and runs the GUI event loop.
+Error handling:
+    Converts known application errors into structured logs and exit codes.
+Ties to other methods:
+    Calls chapter_splitter.ui.qt.workflow.workflow.
+Why this exists:
+    Keep a stable process entrypoint regardless of GUI implementation details.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +30,7 @@ from .observability.logging import (
     new_correlation_id,
     set_correlation_id,
 )
-from .ui.tk.workflow import workflow
+from .ui.qt.workflow import workflow
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +38,18 @@ logger = logging.getLogger(__name__)
 def main(config_path: Path | None = None) -> int:
     """Run the GUI application workflow.
 
-    Purpose:
-        Initialize configuration, logging, and launch the Tkinter UI.
-    Ties To:
-        Called by the chapter-splitter-gui console script.
     Inputs:
         - config_path: Optional path to a configuration file.
     Outputs:
         - Exit code integer for the process.
-    Side Effects:
-        Configures logging, registers signal handlers, launches the GUI.
-    Raises:
-        - None.
+    Side effects:
+        Loads configuration, configures logging, registers signal handlers, launches the GUI.
+    Error handling:
+        Returns a non-zero exit code for failures while emitting structured logs.
+    Ties to other methods:
+        Called by the chapter-splitter-gui console script.
+    Why this exists:
+        Desktop packaging expects a single entrypoint that returns an integer exit code.
     """
     location = "chapter_splitter.app.main"
     settings = load_config(config_path, location)
@@ -46,18 +62,20 @@ def main(config_path: Path | None = None) -> int:
     def _shutdown() -> None:
         """Handle a graceful shutdown request.
 
-        Purpose:
+        Summary:
             Provide a shutdown callback for signal handling.
-        Ties To:
-            Registered via register_signal_handlers.
         Inputs:
             - None.
         Outputs:
             - None.
-        Side Effects:
-            Marks the cancellation token as cancelled.
-        Raises:
-            - CancellationError: When cancellation reason is invalid.
+        Side effects:
+            Cancels the workflow token.
+        Error handling:
+            Relies on CancellationToken.cancel validation and allows CancellationError to bubble.
+        Ties to other methods:
+            Registered via register_signal_handlers.
+        Why this exists:
+            Signal handlers need a small boundary function that updates the shared token.
         """
         token.cancel("Shutdown requested.", location)
 

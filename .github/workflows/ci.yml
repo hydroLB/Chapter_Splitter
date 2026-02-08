@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -23,9 +25,52 @@ jobs:
         run: ruff check .
       - name: Type check
         run: mypy --config-file pyproject.toml
+      - name: Detect touched UI/workflow files
+        id: touched_ui_workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+          fi
+
+          if [[ -z "${base_sha}" || "${base_sha}" =~ ^0+$ ]]; then
+            base_sha="$(git rev-list --max-count=1 HEAD^ || true)"
+          fi
+
+          if [[ -z "${base_sha}" ]]; then
+            git ls-files > /tmp/changed_files.txt
+          else
+            git diff --name-only "${base_sha}" "${GITHUB_SHA}" > /tmp/changed_files.txt
+          fi
+
+          awk '/^Chapter_Splitter\/chapter_splitter\/ui\/tk\/.*\.py$/' \
+            /tmp/changed_files.txt > /tmp/touched_ui_workflow_files.txt || true
+
+          file_count="$(wc -l < /tmp/touched_ui_workflow_files.txt | tr -d ' ')"
+          if [[ "${file_count}" -gt 0 ]]; then
+            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+            tr '\n' '\0' < /tmp/touched_ui_workflow_files.txt > /tmp/touched_ui_workflow_files.nul
+            echo "Touched UI/workflow files:"
+            cat /tmp/touched_ui_workflow_files.txt
+          else
+            echo "has_changes=false" >> "${GITHUB_OUTPUT}"
+            : > /tmp/touched_ui_workflow_files.nul
+            echo "No touched UI/workflow files detected."
+          fi
+      - name: Touched UI/workflow warning gate
+        if: steps.touched_ui_workflow.outputs.has_changes == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xargs -0 ruff check --select W < /tmp/touched_ui_workflow_files.nul
+          xargs -0 mypy --config-file pyproject.toml < /tmp/touched_ui_workflow_files.nul
       - name: Tests
         run: |
-          coverage run -m pytest
+          coverage run -m pytest -W error
           coverage report --fail-under=90
       - name: Security scan
         run: bandit -c pyproject.toml -r Chapter_Splitter/chapter_splitter

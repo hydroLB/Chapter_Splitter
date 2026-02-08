@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
-from ...config.schema import IOConfig, RetryConfig
+from ...config.schema import DetectionConfig, IOConfig, RetryConfig
 from ...core.errors import PdfProcessingError, format_error_message
 from ...core.models import ChapterDefinition
 from ...core.runtime import CancellationToken
@@ -28,6 +29,7 @@ def detect_chapters_from_outlines(
     retry_config: RetryConfig,
     io_config: IOConfig,
     location: str,
+    detection_config: DetectionConfig | None = None,
 ) -> list[ChapterDefinition]:
     """Inspect PDF outlines and return inferred chapter ranges.
 
@@ -60,6 +62,16 @@ def detect_chapters_from_outlines(
         deadline=deadline,
         token=token,
         location=location,
+        outline_min_depth=detection_config.outline_min_depth if detection_config else 0,
+        outline_ignore_title_regexes=(
+            detection_config.outline_ignore_title_regexes if detection_config else ()
+        ),
+        outline_merge_tiny_max_pages=(
+            detection_config.outline_merge_tiny_max_pages if detection_config else 0
+        ),
+        outline_merge_tiny_title_joiner=(
+            detection_config.outline_merge_tiny_title_joiner if detection_config else " + "
+        ),
     )
 
 
@@ -70,6 +82,10 @@ def detect_chapters_from_outlines_reader(
     token: CancellationToken,
     location: str,
     entries: list[tuple[str, int]] | None = None,
+    outline_min_depth: int = 0,
+    outline_ignore_title_regexes: Sequence[str] = (),
+    outline_merge_tiny_max_pages: int = 0,
+    outline_merge_tiny_title_joiner: str = " + ",
 ) -> list[ChapterDefinition]:
     """Inspect outlines on an already-loaded reader and infer chapter ranges.
 
@@ -101,7 +117,14 @@ def detect_chapters_from_outlines_reader(
                 f"total_pages must be >= 1 (got {total_pages}).{context}",
             )
         )
-    extracted = entries or extract_outline_entries(reader, deadline, token, location)
+    extracted = entries or extract_outline_entries(
+        reader,
+        deadline,
+        token,
+        location,
+        outline_min_depth=outline_min_depth,
+        outline_ignore_title_regexes=outline_ignore_title_regexes,
+    )
     if not extracted:
         return []
     extracted.sort(key=lambda item: item[1])
@@ -113,6 +136,12 @@ def detect_chapters_from_outlines_reader(
         if end_page < start_page:
             continue
         chapters.append(ChapterDefinition(title=title, start_page=start_page, end_page=end_page))
+    if outline_merge_tiny_max_pages > 0:
+        chapters = _merge_tiny_chapters(
+            chapters,
+            outline_merge_tiny_max_pages,
+            outline_merge_tiny_title_joiner,
+        )
     return chapters
 
 
@@ -121,6 +150,8 @@ def extract_outline_entries(
     deadline: Deadline,
     token: CancellationToken,
     location: str,
+    outline_min_depth: int = 0,
+    outline_ignore_title_regexes: Sequence[str] = (),
 ) -> list[tuple[str, int]]:
     """Extract top-level outline entries as (title, 1-based page) pairs.
 
@@ -144,6 +175,13 @@ def extract_outline_entries(
     deadline.check(location)
     error_location = f"{__name__}.extract_outline_entries"
     context = f" Context: {location}." if location else ""
+    if outline_min_depth < 0:
+        raise PdfProcessingError(
+            format_error_message(
+                error_location,
+                f"outline_min_depth must be >= 0 (got {outline_min_depth}).{context}",
+            )
+        )
     outlines = reader.outline
     if outlines is None:
         return []
@@ -152,7 +190,19 @@ def extract_outline_entries(
             format_error_message(error_location, f"PDF outlines must be a sequence.{context}")
         )
 
-    entries: list[tuple[str, int]] = []
+    compiled_ignores: list[re.Pattern[str]] = []
+    for pattern in outline_ignore_title_regexes:
+        try:
+            compiled_ignores.append(re.compile(pattern))
+        except re.error as exc:
+            raise PdfProcessingError(
+                format_error_message(
+                    error_location,
+                    f"Invalid outline ignore pattern: {pattern}.{context}",
+                )
+            ) from exc
+
+    candidates: list[tuple[int, str, int]] = []
 
     def _walk(items: Sequence[object], depth: int) -> None:
         """Walk outline items and collect top level entries.
@@ -177,8 +227,6 @@ def extract_outline_entries(
             if isinstance(item, list):
                 _walk(item, depth + 1)
                 continue
-            if depth != 0:
-                continue
             try:
                 page_num = reader.get_destination_page_number(item) + 1
             except (ValueError, TypeError, AttributeError) as exc:
@@ -189,8 +237,72 @@ def extract_outline_entries(
                 ) from exc
             title = getattr(item, "title", "").strip()
             if not title:
-                title = f"Chapter {len(entries) + 1}"
-            entries.append((title, page_num))
+                title = f"Chapter {len(candidates) + 1}"
+            if any(pattern.search(title) for pattern in compiled_ignores):
+                continue
+            candidates.append((depth, title, page_num))
 
     _walk(outlines, 0)
-    return entries
+    eligible = [item for item in candidates if item[0] >= outline_min_depth]
+    if not eligible:
+        return []
+    selected_depth = min(item[0] for item in eligible)
+    return [(title, page) for depth, title, page in eligible if depth == selected_depth]
+
+
+def _merge_tiny_chapters(
+    chapters: list[ChapterDefinition],
+    max_pages: int,
+    title_joiner: str,
+) -> list[ChapterDefinition]:
+    """Merge small outline-derived chapters into adjacent ranges.
+
+    Purpose:
+        Reduce noisy outline outputs such as one-page entries that fragment the chapter list.
+    Ties To:
+        Used by detect_chapters_from_outlines_reader after chapter ranges are derived.
+    Inputs:
+        - chapters: Outline-derived chapters to post-process.
+        - max_pages: Maximum page count considered "tiny" (<= max_pages).
+        - title_joiner: Joiner used when combining titles.
+    Outputs:
+        - New list of ChapterDefinition objects with merged ranges.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    if max_pages <= 0:
+        return chapters
+    if not title_joiner.strip():
+        title_joiner = " + "
+
+    merged: list[ChapterDefinition] = []
+    work = list(chapters)
+    idx = 0
+    while idx < len(work):
+        current = work[idx]
+        page_count = current.end_page - current.start_page + 1
+        if page_count <= max_pages and idx + 1 < len(work):
+            nxt = work[idx + 1]
+            work[idx + 1] = ChapterDefinition(
+                title=f"{current.title}{title_joiner}{nxt.title}",
+                start_page=current.start_page,
+                end_page=nxt.end_page,
+            )
+            idx += 1
+            continue
+        if page_count <= max_pages and merged:
+            prev = merged.pop()
+            merged.append(
+                ChapterDefinition(
+                    title=f"{prev.title}{title_joiner}{current.title}",
+                    start_page=prev.start_page,
+                    end_page=current.end_page,
+                )
+            )
+            idx += 1
+            continue
+        merged.append(current)
+        idx += 1
+    return merged
