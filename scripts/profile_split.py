@@ -61,11 +61,12 @@ def main() -> int:
         settings.retry,
         settings.io,
         "scripts.profile_split",
+        detection_config=settings.detection,
     )
     split_pdf_into_chapters(
         pdf_path=pdf_path,
         chapters=chapters,
-        page_offset=settings.io.page_offset,
+        page_offset=None,
         deadline=deadline,
         token=token,
         retry_config=settings.retry,

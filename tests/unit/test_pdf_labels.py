@@ -8,7 +8,7 @@ import pytest
 
 from chapter_splitter.core.errors import PdfProcessingError
 from chapter_splitter.pdf.io.dependencies import PdfReader
-from chapter_splitter.pdf.io.labels import extract_page_labels
+from chapter_splitter.pdf.io.labels import extract_page_labels, infer_page_offset_from_labels
 
 
 class _ReaderWithLabels:
@@ -76,3 +76,81 @@ def test_extract_page_labels_requires_attribute() -> None:
     reader = cast(PdfReader, object())
     with pytest.raises(PdfProcessingError):
         extract_page_labels(reader, "tests.unit.test_pdf_labels")
+
+
+def test_infer_page_offset_from_labels_returns_offset_when_numeric_run_exists() -> None:
+    """Verify offset inference finds the start of numeric page labels.
+
+    Purpose:
+        Reduce user configuration friction when PDFs expose page label metadata.
+    Ties To:
+        Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    labels = ["i", "ii", "iii", "1", "2", "3", "4"]
+    assert (
+        infer_page_offset_from_labels(
+            labels,
+            min_sequential_numeric_labels=3,
+            location="tests.unit.test_pdf_labels",
+        )
+        == 3
+    )
+
+
+def test_infer_page_offset_from_labels_returns_none_when_run_is_too_short() -> None:
+    """Verify inference respects the sequential run threshold.
+
+    Purpose:
+        Avoid false positives from isolated numeric labels.
+    Ties To:
+        Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    labels = ["x", "1", "x", "2"]
+    assert (
+        infer_page_offset_from_labels(
+            labels,
+            min_sequential_numeric_labels=2,
+            location="tests.unit.test_pdf_labels",
+        )
+        is None
+    )
+
+
+def test_infer_page_offset_from_labels_rejects_invalid_threshold() -> None:
+    """Verify inference rejects invalid thresholds.
+
+    Purpose:
+        Keep the heuristic deterministic and safe under strict typing.
+    Ties To:
+        Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    with pytest.raises(PdfProcessingError):
+        infer_page_offset_from_labels(
+            ["1"],
+            min_sequential_numeric_labels=0,
+            location="tests.unit.test_pdf_labels",
+        )

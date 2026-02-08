@@ -53,6 +53,10 @@ def _detection_config(enable_toc: bool) -> DetectionConfig:
         toc_ignore_title_regexes=(r"(?i)^(table of contents|contents)$",),
         toc_min_entries=2,
         toc_max_entries=50,
+        outline_ignore_title_regexes=(),
+        outline_min_depth=0,
+        outline_merge_tiny_max_pages=0,
+        outline_merge_tiny_title_joiner=" + ",
     )
 
 

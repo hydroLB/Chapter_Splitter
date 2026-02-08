@@ -41,7 +41,7 @@ def test_split_pdf_into_chapters_creates_outputs(sample_pdf: Path) -> None:
     outputs = split_pdf_into_chapters(
         pdf_path=sample_pdf,
         chapters=chapters,
-        page_offset=settings.io.page_offset,
+        page_offset=None,
         deadline=deadline,
         token=token,
         retry_config=settings.retry,
@@ -83,7 +83,7 @@ def test_split_rejects_existing_output_when_policy_error(sample_pdf: Path) -> No
         split_pdf_into_chapters(
             pdf_path=sample_pdf,
             chapters=chapters,
-            page_offset=settings.io.page_offset,
+            page_offset=None,
             deadline=deadline,
             token=token,
             retry_config=settings.retry,
@@ -124,7 +124,7 @@ def test_split_suffix_policy_generates_unique_paths(sample_pdf: Path) -> None:
     outputs = split_pdf_into_chapters(
         pdf_path=sample_pdf,
         chapters=chapters,
-        page_offset=settings.io.page_offset,
+        page_offset=None,
         deadline=deadline,
         token=token,
         retry_config=settings.retry,
@@ -164,7 +164,7 @@ def test_split_validates_overlapping_ranges(sample_pdf: Path) -> None:
         split_pdf_into_chapters(
             pdf_path=sample_pdf,
             chapters=chapters,
-            page_offset=settings.io.page_offset,
+            page_offset=None,
             deadline=deadline,
             token=token,
             retry_config=settings.retry,
@@ -220,7 +220,7 @@ def test_split_atomic_overwrite_does_not_corrupt_existing_file_on_failure(
         split_pdf_into_chapters(
             pdf_path=sample_pdf,
             chapters=chapters,
-            page_offset=settings.io.page_offset,
+            page_offset=None,
             deadline=deadline,
             token=token,
             retry_config=settings.retry,

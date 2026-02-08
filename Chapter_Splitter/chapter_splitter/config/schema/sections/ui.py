@@ -1,4 +1,4 @@
-"""Tkinter UI configuration schema."""
+"""GUI configuration schema."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ PdfPreviewFitMode = Literal["page", "width", "none"]
 
 
 class UIConfig:
-    """Tkinter UI configuration.
+    """GUI configuration.
 
     Purpose:
         Centralize tunable UI labels, layout, and behavior settings.
@@ -33,8 +33,6 @@ class UIConfig:
         window_height: int,
         window_offset_x: int,
         window_offset_y: int,
-        pdf_info_template: str,
-        pdf_info_wraplength: int,
         open_pdf_button_label: str,
         close_button_label: str,
         row_limit: int,
@@ -83,6 +81,7 @@ class UIConfig:
         pdf_preview_zoom: float,
         pdf_preview_fit_mode: PdfPreviewFitMode,
         pdf_preview_fit_padding_px: int,
+        pdf_preview_continuous_scroll: bool,
         pdf_preview_supersample: int,
         pdf_preview_min_zoom: float,
         pdf_preview_max_zoom: float,
@@ -92,11 +91,12 @@ class UIConfig:
         chapter_review_thumbnail_width: int,
         chapter_review_columns: int,
         auto_show_review_after_detect: bool,
+        auto_detect_on_open: bool,
     ) -> None:
         """Initialize UI configuration.
 
         Purpose:
-            Provide window sizing, limits, and behavior for the Tkinter UI.
+            Provide window sizing, limits, labels, and behavior for the GUI.
         Ties To:
             Used by chapter window creation and grid layout logic.
         Inputs:
@@ -104,8 +104,6 @@ class UIConfig:
             - window_height: Default window height.
             - window_offset_x: Screen offset on the X axis.
             - window_offset_y: Screen offset on the Y axis.
-            - pdf_info_template: Template string for the PDF info header.
-            - pdf_info_wraplength: Wrap length for the PDF info header label.
             - open_pdf_button_label: Label for the open PDF button.
             - close_button_label: Label for the close window button.
             - row_limit: Maximum number of chapter rows.
@@ -163,6 +161,7 @@ class UIConfig:
             - chapter_review_columns: Number of chapter cards per row in the review gallery.
             - auto_show_review_after_detect: Whether to automatically open the review tab after
               detection.
+            - auto_detect_on_open: Whether to run Auto Detect automatically after a PDF is loaded.
         Outputs:
             - None.
         Side Effects:
@@ -174,8 +173,6 @@ class UIConfig:
         self.window_height = window_height
         self.window_offset_x = window_offset_x
         self.window_offset_y = window_offset_y
-        self.pdf_info_template = pdf_info_template
-        self.pdf_info_wraplength = pdf_info_wraplength
         self.open_pdf_button_label = open_pdf_button_label
         self.close_button_label = close_button_label
         self.row_limit = row_limit
@@ -224,6 +221,7 @@ class UIConfig:
         self.pdf_preview_zoom = pdf_preview_zoom
         self.pdf_preview_fit_mode = pdf_preview_fit_mode
         self.pdf_preview_fit_padding_px = pdf_preview_fit_padding_px
+        self.pdf_preview_continuous_scroll = pdf_preview_continuous_scroll
         self.pdf_preview_supersample = pdf_preview_supersample
         self.pdf_preview_min_zoom = pdf_preview_min_zoom
         self.pdf_preview_max_zoom = pdf_preview_max_zoom
@@ -233,6 +231,7 @@ class UIConfig:
         self.chapter_review_thumbnail_width = chapter_review_thumbnail_width
         self.chapter_review_columns = chapter_review_columns
         self.auto_show_review_after_detect = auto_show_review_after_detect
+        self.auto_detect_on_open = auto_detect_on_open
 
     def validate(self, location: str) -> None:
         """Validate UI configuration.
@@ -257,20 +256,6 @@ class UIConfig:
                 format_error_message(
                     error_location,
                     f"ui.window_width and ui.window_height must be positive.{context}",
-                )
-            )
-        if not self.pdf_info_template.strip():
-            raise ConfigurationError(
-                format_error_message(
-                    error_location,
-                    f"ui.pdf_info_template must be non empty.{context}",
-                )
-            )
-        if self.pdf_info_wraplength <= 0:
-            raise ConfigurationError(
-                format_error_message(
-                    error_location,
-                    f"ui.pdf_info_wraplength must be positive.{context}",
                 )
             )
         if not self.open_pdf_button_label.strip():

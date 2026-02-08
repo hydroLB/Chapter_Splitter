@@ -34,6 +34,10 @@ class DetectionConfig:
         toc_ignore_title_regexes: Sequence[str],
         toc_min_entries: int,
         toc_max_entries: int,
+        outline_ignore_title_regexes: Sequence[str],
+        outline_min_depth: int,
+        outline_merge_tiny_max_pages: int,
+        outline_merge_tiny_title_joiner: str,
     ) -> None:
         """Initialize detection configuration.
 
@@ -49,6 +53,10 @@ class DetectionConfig:
             - toc_ignore_title_regexes: Regex patterns for titles to ignore during parsing.
             - toc_min_entries: Minimum number of entries required to accept a parsed TOC.
             - toc_max_entries: Maximum number of entries to keep from a parsed TOC.
+            - outline_ignore_title_regexes: Regex patterns for outline titles to ignore.
+            - outline_min_depth: Minimum outline depth to consider when choosing chapter entries.
+            - outline_merge_tiny_max_pages: Merge outline-derived chapters with <= this many pages.
+            - outline_merge_tiny_title_joiner: Joiner used when merging outline chapter titles.
         Outputs:
             - None.
         Side Effects:
@@ -63,6 +71,10 @@ class DetectionConfig:
         self.toc_ignore_title_regexes = tuple(toc_ignore_title_regexes)
         self.toc_min_entries = toc_min_entries
         self.toc_max_entries = toc_max_entries
+        self.outline_ignore_title_regexes = tuple(outline_ignore_title_regexes)
+        self.outline_min_depth = outline_min_depth
+        self.outline_merge_tiny_max_pages = outline_merge_tiny_max_pages
+        self.outline_merge_tiny_title_joiner = outline_merge_tiny_title_joiner
 
     def validate(self, location: str) -> None:
         """Validate detection configuration.
@@ -145,5 +157,41 @@ class DetectionConfig:
                     format_error_message(
                         error_location,
                         f"Invalid detection.toc_ignore_title_regexes pattern: {pattern}.{context}",
+                    )
+                ) from exc
+
+        if self.outline_min_depth < 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"detection.outline_min_depth must be >= 0.{context}",
+                )
+            )
+        if self.outline_merge_tiny_max_pages < 0:
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"detection.outline_merge_tiny_max_pages must be >= 0.{context}",
+                )
+            )
+        if (
+            not isinstance(self.outline_merge_tiny_title_joiner, str)
+            or not str(self.outline_merge_tiny_title_joiner).strip()
+        ):
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"detection.outline_merge_tiny_title_joiner must be non empty.{context}",
+                )
+            )
+        for pattern in self.outline_ignore_title_regexes:
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ConfigurationError(
+                    format_error_message(
+                        error_location,
+                        "Invalid detection.outline_ignore_title_regexes pattern: "
+                        f"{pattern}.{context}",
                     )
                 ) from exc

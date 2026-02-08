@@ -6,7 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from chapter_splitter.cli import _optional_path, _require_str, _run_split, main
+from chapter_splitter.cli import (
+    _optional_int,
+    _optional_path,
+    _optional_str,
+    _require_str,
+    _run_detect,
+    _run_split,
+    main,
+)
 from chapter_splitter.config.schema import (
     AppConfig,
     DetectionConfig,
@@ -19,6 +27,7 @@ from chapter_splitter.config.schema import (
     ValidationConfig,
 )
 from chapter_splitter.core.errors import CancellationError, ChapterSplitterError
+from chapter_splitter.core.models import ChapterDefinition
 from chapter_splitter.core.runtime import CancellationToken
 
 
@@ -45,6 +54,8 @@ def _settings(tmp_path: Path) -> Settings:
             output_collision_max_suffix=10,
             fsync_writes=False,
             page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
         ),
         retry=RetryConfig(
             max_attempts=1,
@@ -57,8 +68,6 @@ def _settings(tmp_path: Path) -> Settings:
             window_height=1,
             window_offset_x=0,
             window_offset_y=0,
-            pdf_info_template="PDF: {pdf} ({pages})",
-            pdf_info_wraplength=1,
             open_pdf_button_label="Open",
             close_button_label="Close",
             row_limit=1,
@@ -107,6 +116,7 @@ def _settings(tmp_path: Path) -> Settings:
             pdf_preview_zoom=1.0,
             pdf_preview_fit_mode="none",
             pdf_preview_fit_padding_px=0,
+            pdf_preview_continuous_scroll=True,
             pdf_preview_supersample=1,
             pdf_preview_min_zoom=0.25,
             pdf_preview_max_zoom=4.0,
@@ -116,6 +126,7 @@ def _settings(tmp_path: Path) -> Settings:
             chapter_review_thumbnail_width=120,
             chapter_review_columns=1,
             auto_show_review_after_detect=False,
+            auto_detect_on_open=False,
         ),
         validation=ValidationConfig(
             max_chapters=10,
@@ -131,6 +142,10 @@ def _settings(tmp_path: Path) -> Settings:
             toc_ignore_title_regexes=(),
             toc_min_entries=1,
             toc_max_entries=10,
+            outline_ignore_title_regexes=(),
+            outline_min_depth=0,
+            outline_merge_tiny_max_pages=0,
+            outline_merge_tiny_title_joiner=" + ",
         ),
         performance=PerformanceConfig(benchmark_iterations=1, benchmark_budget_seconds=0.1),
     )
@@ -181,6 +196,50 @@ def test_optional_path_normalizes_values(tmp_path: Path) -> None:
         _optional_path(123, "p", "tests.unit.test_cli")
 
 
+def test_optional_str_normalizes_values() -> None:
+    """Verify optional string parsing supports None and strings.
+
+    Purpose:
+        Keep typed CLI parsing strict without leaking Any.
+    Ties To:
+        Covers chapter_splitter.cli._optional_str.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    assert _optional_str(None, "s", "tests.unit.test_cli") is None
+    assert _optional_str("x", "s", "tests.unit.test_cli") == "x"
+    with pytest.raises(ChapterSplitterError):
+        _optional_str(123, "s", "tests.unit.test_cli")
+
+
+def test_optional_int_normalizes_values() -> None:
+    """Verify optional integer parsing supports None and integers.
+
+    Purpose:
+        Keep typed CLI parsing strict without leaking Any.
+    Ties To:
+        Covers chapter_splitter.cli._optional_int.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    assert _optional_int(None, "i", "tests.unit.test_cli") is None
+    assert _optional_int(5, "i", "tests.unit.test_cli") == 5
+    with pytest.raises(ChapterSplitterError):
+        _optional_int("5", "i", "tests.unit.test_cli")
+
+
 def test_run_split_fails_fast_when_cancelled(tmp_path: Path) -> None:
     """Verify split fails fast when cancellation is already requested.
 
@@ -203,10 +262,68 @@ def test_run_split_fails_fast_when_cancelled(tmp_path: Path) -> None:
         _run_split(
             pdf_path=tmp_path / "a.pdf",
             chapters_path=tmp_path / "chapters.toml",
+            output_dir=None,
+            collision_policy=None,
+            page_offset=None,
             settings=_settings(tmp_path),
             token=token,
             location="tests.unit.test_cli",
         )
+
+
+def test_run_split_applies_cli_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Verify split CLI flags override common IO settings without a config file.
+
+    Purpose:
+        Keep one-off CLI runs ergonomic while preserving config defaults.
+    Ties To:
+        Covers chapter_splitter.cli._run_split override wiring.
+    Inputs:
+        - monkeypatch: Pytest monkeypatch fixture.
+        - tmp_path: Pytest temporary directory.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    settings = _settings(tmp_path)
+    token = CancellationToken()
+    out_dir = tmp_path / "out"
+
+    monkeypatch.setattr(
+        "chapter_splitter.cli.load_chapter_file",
+        lambda *_args, **_kwargs: [ChapterDefinition(title="One", start_page=1, end_page=1)],
+    )
+
+    def _split_stub(*_args: object, **kwargs: object) -> list[object]:
+        assert kwargs["page_offset"] == 2
+        io_config = kwargs["io_config"]
+        assert isinstance(io_config, IOConfig)
+        assert io_config.output_collision_policy == "overwrite"
+        assert kwargs["output_dir"] == out_dir
+        return []
+
+    monkeypatch.setattr("chapter_splitter.cli.split_pdf_into_chapters", _split_stub)
+    monkeypatch.setattr("chapter_splitter.cli.log_event", lambda *_args, **_kwargs: None)
+
+    assert (
+        _run_split(
+            pdf_path=tmp_path / "a.pdf",
+            chapters_path=tmp_path / "chapters.toml",
+            output_dir=out_dir,
+            collision_policy="overwrite",
+            page_offset=2,
+            settings=settings,
+            token=token,
+            location="tests.unit.test_cli",
+        )
+        == 0
+    )
 
 
 def test_main_gui_path_returns_gui_exit_code(
@@ -280,6 +397,70 @@ def test_main_split_path_returns_split_exit_code(
     )
     monkeypatch.setattr("chapter_splitter.cli._run_split", lambda *_args, **_kwargs: 0)
     assert main(["split", "--pdf", "a.pdf", "--chapters", "c.toml"]) == 0
+
+
+def test_main_detect_path_returns_detect_exit_code(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verify detect subcommand delegates to the detect workflow.
+
+    Purpose:
+        Ensure the entrypoint wiring stays stable for chapter detection output.
+    Ties To:
+        Covers chapter_splitter.cli.main detect path.
+    Inputs:
+        - monkeypatch: Pytest monkeypatch fixture.
+        - tmp_path: Pytest temporary directory.
+    Outputs:
+        - None.
+    Side Effects:
+        Patches config loading, signal registration, and detect execution.
+    Raises:
+        - None.
+    """
+    monkeypatch.setattr(
+        "chapter_splitter.cli.load_config", lambda *_args, **_kwargs: _settings(tmp_path)
+    )
+    monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "chapter_splitter.cli.new_correlation_id", lambda *_args, **_kwargs: "cid-1"
+    )
+    monkeypatch.setattr("chapter_splitter.cli.set_correlation_id", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "chapter_splitter.cli.register_signal_handlers", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr("chapter_splitter.cli._run_detect", lambda *_args, **_kwargs: 0)
+    assert main(["detect", "--pdf", "a.pdf"]) == 0
+
+
+def test_run_detect_requires_toc_hint_for_toc_strategy(tmp_path: Path) -> None:
+    """Verify toc strategy requires a TOC hint page.
+
+    Purpose:
+        Keep the toc-only strategy deterministic and avoid surprising scans.
+    Ties To:
+        Covers chapter_splitter.cli._run_detect toc argument validation.
+    Inputs:
+        - tmp_path: Pytest temporary directory.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    token = CancellationToken()
+    with pytest.raises(ChapterSplitterError):
+        _run_detect(
+            pdf_path=tmp_path / "a.pdf",
+            out_path=tmp_path / "chapters.toml",
+            strategy="toc",
+            toc_hint_page=None,
+            overwrite=False,
+            settings=_settings(tmp_path),
+            token=token,
+            location="tests.unit.test_cli",
+        )
 
 
 def test_main_split_path_maps_cancellation_to_130(
