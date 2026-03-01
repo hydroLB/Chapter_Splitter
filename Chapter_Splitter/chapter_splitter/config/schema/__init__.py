@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from .sections.app import AppConfig
 from .sections.detection import DetectionConfig
-from .sections.io import IOConfig
+from .sections.io import IOConfig, OutputCollisionPolicy
 from .sections.logging import LoggingConfig
 from .sections.performance import PerformanceConfig
 from .sections.retry import RetryConfig
@@ -20,6 +20,7 @@ __all__ = [
     "AppConfig",
     "DetectionConfig",
     "IOConfig",
+    "OutputCollisionPolicy",
     "LoggingConfig",
     "PerformanceConfig",
     "RetryConfig",

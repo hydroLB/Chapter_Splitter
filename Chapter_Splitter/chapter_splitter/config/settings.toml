@@ -85,6 +85,7 @@ open_output_dir_prompt_message_template = "Created {count} chapter file(s) in:\\
 enable_keyboard_shortcuts = true
 show_status_bar = false
 status_hint = ""
+color_mode = "auto"
 enable_pdf_preview = true
 pdf_preview_zoom = 1.0
 pdf_preview_fit_mode = "width"

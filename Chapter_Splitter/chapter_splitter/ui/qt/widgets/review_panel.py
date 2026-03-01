@@ -92,10 +92,11 @@ class ReviewPanelWidget(QtWidgets.QWidget):
 
         self._list.clear()
         if not chapters:
-            empty = QtWidgets.QListWidgetItem("No chapters yet. Detect or add chapters first.")
-            empty.setFlags(QtGui.Qt.ItemFlag.NoItemFlags)
-            self._list.addItem(empty)
+            self._list.setVisible(False)
+            self._empty_state.setVisible(True)
             return
+        self._list.setVisible(True)
+        self._empty_state.setVisible(False)
 
         for chapter in chapters:
             title = (chapter.title or "").strip() or "Untitled"
@@ -128,6 +129,7 @@ class ReviewPanelWidget(QtWidgets.QWidget):
         layout.setSpacing(10)
 
         title = QtWidgets.QLabel("Export", self)
+        title.setProperty("text_role", "section_header")
         font = title.font()
         font.setPointSize(max(12, font.pointSize()))
         font.setWeight(QtGui.QFont.Weight.DemiBold)
@@ -135,7 +137,7 @@ class ReviewPanelWidget(QtWidgets.QWidget):
         layout.addWidget(title)
 
         self._summary = QtWidgets.QLabel("0 chapter(s)", self)
-        self._summary.setProperty("muted", "true")
+        self._summary.setProperty("text_role", "hint")
         layout.addWidget(self._summary)
 
         self._error = QtWidgets.QLabel("", self)
@@ -146,4 +148,14 @@ class ReviewPanelWidget(QtWidgets.QWidget):
 
         self._list = QtWidgets.QListWidget(self)
         self._list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        scrollbar_as_needed = int(getattr(QtGui.Qt, "ScrollBarAsNeeded", 0))
+        self._list.setHorizontalScrollBarPolicy(scrollbar_as_needed)
+        self._list.setVerticalScrollBarPolicy(scrollbar_as_needed)
+        self._list.setVisible(False)
         layout.addWidget(self._list, 1)
+
+        self._empty_state = QtWidgets.QLabel("No chapters yet. Detect or add chapters first.", self)
+        self._empty_state.setProperty("text_role", "empty_state")
+        self._empty_state.setAlignment(QtGui.Qt.AlignmentFlag.AlignCenter)
+        self._empty_state.setWordWrap(True)
+        layout.addWidget(self._empty_state, 0)

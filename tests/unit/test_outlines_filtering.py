@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from chapter_splitter.core.runtime import CancellationToken
-from chapter_splitter.pdf.detection.outlines import (
+from chapter_splitter.core import CancellationToken
+from chapter_splitter.pdf.detection import (
     OutlineReaderProtocol,
     detect_chapters_from_outlines_reader,
     extract_outline_entries,
 )
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.utils import Deadline
 
 
 @dataclass(frozen=True, slots=True)

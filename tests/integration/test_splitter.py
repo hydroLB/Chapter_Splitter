@@ -8,11 +8,9 @@ from typing import BinaryIO
 import pytest
 
 from chapter_splitter.config.loader import load_settings
-from chapter_splitter.core.errors import IoError, ValidationError
-from chapter_splitter.core.models import ChapterDefinition
-from chapter_splitter.core.runtime import CancellationToken
-from chapter_splitter.pdf.splitting.splitter import split_pdf_into_chapters
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.core import CancellationToken, ChapterDefinition, IoError, ValidationError
+from chapter_splitter.pdf.splitting import split_pdf_into_chapters
+from chapter_splitter.utils import Deadline
 
 
 def test_split_pdf_into_chapters_creates_outputs(sample_pdf: Path) -> None:

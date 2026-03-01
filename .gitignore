@@ -1,63 +1,100 @@
-__pycache__/
-*.py[cod]
-.venv/
-.env*
-node_modules/
-dist/
-build/
+# OS artifacts
 .DS_Store
+Thumbs.db
+
+# Editor and IDE artifacts
 .idea/
 .vscode/
-verify-*.log
-.githooks/
-.repo/hooks/
-.repo/wrappers/
+*.swp
+*.swo
+*~
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.tox/
+.nox/
+
+# Python virtual environments
+.venv/
+.venv*/
 venv/
 env/
-*.pyc
-*.pyo
+ENV/
+
+# Build, packaging, and coverage artifacts
+/build/
+/dist/
+/coverage/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+coverage-*.xml
+junit.xml
 *.egg-info/
-.repowizard/legacy-hooks*
-.repowizard/
-.repo/
-.github/workflows/autosnap-lite.yml
-.github/workflows/initseed-heavy.yml
+.eggs/
+*.egg
+*.pstats
+*.prof
+pip-wheel-metadata/
+wheels/
+target/
 
-# ---- Added by audit ----
-# OS / tooling
-.DS_Store
-
-# Logs
+# Logs and runtime traces
 *.log
+*.pid
+*.pid.lock
+*.stackdump
+verify-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Python artifacts
-__pycache__/
-*.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-dist/
-build/
-.coverage
-.coverage.*
-.vite/
-coverage/
-target/
-git-autosnap.sh
-gitleaks-prepush.json
-pre-commit
-pre-commit 2
-pre-push
-pre-push 2
-post-commit
-profiles/
-benchmarks/*.pdf
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.kdbx
+*.asc
+secrets.*
+credentials.*
+auth.json
 
+# Local databases and state
+*.sqlite
+*.sqlite3
+*.db
+
+# Node artifacts
+node_modules/
+.vite/
+
+# Local tooling and workspace-specific artifacts
+.codex/
 .local/
+.githooks/
+.repowizard/
+.repowizard/legacy-hooks*
+.repo/
+profiles/
+
+# Benchmark generated artifacts
+benchmarks/*.pdf

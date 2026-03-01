@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sys
+import types
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -13,6 +17,7 @@ from chapter_splitter.cli import (
     _require_str,
     _run_detect,
     _run_split,
+    gui_main,
     main,
 )
 from chapter_splitter.config.schema import (
@@ -26,9 +31,48 @@ from chapter_splitter.config.schema import (
     UIConfig,
     ValidationConfig,
 )
-from chapter_splitter.core.errors import CancellationError, ChapterSplitterError
-from chapter_splitter.core.models import ChapterDefinition
-from chapter_splitter.core.runtime import CancellationToken
+from chapter_splitter.core import (
+    CancellationError,
+    CancellationToken,
+    ChapterDefinition,
+    ChapterSplitterError,
+)
+
+
+class _RecordingMetrics:
+    def __init__(self) -> None:
+        self.counters: list[tuple[str, int, Mapping[str, str] | None]] = []
+        self.observations: list[tuple[str, float, Mapping[str, str] | None]] = []
+
+    def increment(
+        self,
+        metric: str,
+        *,
+        value: int = 1,
+        tags: Mapping[str, str] | None = None,
+    ) -> None:
+        self.counters.append((metric, value, tags))
+
+    def observe(
+        self,
+        metric: str,
+        value: float,
+        *,
+        tags: Mapping[str, str] | None = None,
+    ) -> None:
+        self.observations.append((metric, value, tags))
+
+    @contextmanager
+    def timer(
+        self,
+        metric: str,
+        *,
+        tags: Mapping[str, str] | None = None,
+    ) -> Iterator[None]:
+        try:
+            yield
+        finally:
+            self.observe(metric, 0.0, tags=tags)
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -112,6 +156,7 @@ def _settings(tmp_path: Path) -> Settings:
             enable_keyboard_shortcuts=False,
             show_status_bar=True,
             status_hint="hint",
+            color_mode="auto",
             enable_pdf_preview=False,
             pdf_preview_zoom=1.0,
             pdf_preview_fit_mode="none",
@@ -345,24 +390,69 @@ def test_main_gui_path_returns_gui_exit_code(
     Raises:
         - None.
     """
+    expected_settings = _settings(tmp_path)
     monkeypatch.setattr(
-        "chapter_splitter.cli.load_config", lambda *_args, **_kwargs: _settings(tmp_path)
+        "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: expected_settings
     )
-    monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        "chapter_splitter.cli.new_correlation_id", lambda *_args, **_kwargs: "cid-1"
-    )
-    monkeypatch.setattr("chapter_splitter.cli.set_correlation_id", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        "chapter_splitter.cli.register_signal_handlers", lambda *_args, **_kwargs: None
-    )
-    monkeypatch.setattr("chapter_splitter.cli.gui_main", lambda *_args, **_kwargs: 42)
+    captured: dict[str, object] = {}
+
+    def _gui_main(*_args: object, **kwargs: object) -> int:
+        captured.update(kwargs)
+        return 42
+
+    monkeypatch.setattr("chapter_splitter.cli.gui_main", _gui_main)
     assert (
         main(
             ["gui"],
         )
         == 42
     )
+    assert captured["settings"] is expected_settings
+
+
+def test_gui_main_passes_injected_settings_to_app_main(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verify gui_main forwards injected settings to the GUI app boundary.
+
+    Purpose:
+        Ensure CLI-to-GUI handoff remains explicit and does not reload config implicitly.
+    Ties To:
+        Covers chapter_splitter.cli.gui_main.
+    Inputs:
+        - monkeypatch: Pytest monkeypatch fixture.
+        - tmp_path: Pytest temporary directory.
+    Outputs:
+        - None.
+    Side Effects:
+        Injects a fake chapter_splitter.app module into sys.modules.
+    Raises:
+        - None.
+    """
+    expected_settings = _settings(tmp_path)
+    captured: dict[str, object] = {}
+
+    fake_module = types.ModuleType("chapter_splitter.app")
+
+    def _app_main(
+        *,
+        config_path: Path | None = None,
+        settings: Settings | None = None,
+        metrics: object | None = None,
+    ) -> int:
+        captured["config_path"] = config_path
+        captured["settings"] = settings
+        captured["metrics"] = metrics
+        return 7
+
+    fake_module.main = _app_main  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "chapter_splitter.app", fake_module)
+
+    config_path = tmp_path / "settings.toml"
+    assert gui_main(config_path=config_path, settings=expected_settings) == 7
+    assert captured["config_path"] == config_path
+    assert captured["settings"] is expected_settings
+    assert captured["metrics"] is None
 
 
 def test_main_split_path_returns_split_exit_code(
@@ -385,7 +475,7 @@ def test_main_split_path_returns_split_exit_code(
         - None.
     """
     monkeypatch.setattr(
-        "chapter_splitter.cli.load_config", lambda *_args, **_kwargs: _settings(tmp_path)
+        "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
     monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
@@ -419,7 +509,7 @@ def test_main_detect_path_returns_detect_exit_code(
         - None.
     """
     monkeypatch.setattr(
-        "chapter_splitter.cli.load_config", lambda *_args, **_kwargs: _settings(tmp_path)
+        "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
     monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
@@ -484,7 +574,7 @@ def test_main_split_path_maps_cancellation_to_130(
         - None.
     """
     monkeypatch.setattr(
-        "chapter_splitter.cli.load_config", lambda *_args, **_kwargs: _settings(tmp_path)
+        "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
     monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
@@ -494,12 +584,23 @@ def test_main_split_path_maps_cancellation_to_130(
     monkeypatch.setattr(
         "chapter_splitter.cli.register_signal_handlers", lambda *_args, **_kwargs: None
     )
+    captured: dict[str, object] = {}
+
+    def _log_event_stub(*args: object, **_kwargs: object) -> None:
+        if len(args) >= 5:
+            captured["fields"] = args[4]
+
+    monkeypatch.setattr("chapter_splitter.cli.log_event", _log_event_stub)
 
     def raise_cancel(*_args: object, **_kwargs: object) -> int:
         raise CancellationError("cancelled")
 
     monkeypatch.setattr("chapter_splitter.cli._run_split", raise_cancel)
     assert main(["split", "--pdf", "a.pdf", "--chapters", "c.toml"]) == 130
+    fields = captured["fields"]
+    assert isinstance(fields, dict)
+    assert fields["error_code"] == "CHAPTER_SPLITTER_CANCELLATION"
+    assert fields["exit_code"] == 130
 
 
 def test_main_split_path_maps_domain_error_to_1(
@@ -523,7 +624,7 @@ def test_main_split_path_maps_domain_error_to_1(
         - None.
     """
     monkeypatch.setattr(
-        "chapter_splitter.cli.load_config", lambda *_args, **_kwargs: _settings(tmp_path)
+        "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
     monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
@@ -539,3 +640,55 @@ def test_main_split_path_maps_domain_error_to_1(
 
     monkeypatch.setattr("chapter_splitter.cli._run_split", raise_error)
     assert main(["split", "--pdf", "a.pdf", "--chapters", "c.toml"]) == 1
+
+
+def test_main_split_records_metrics_hooks(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Verify CLI boundaries emit counter and timer metrics for command execution.
+
+    Purpose:
+        Ensure metrics hooks are exercised without requiring a concrete backend.
+    Ties To:
+        Covers metrics instrumentation in chapter_splitter.cli.main.
+    Inputs:
+        - monkeypatch: Pytest monkeypatch fixture.
+        - tmp_path: Pytest temporary directory.
+    Outputs:
+        - None.
+    Side Effects:
+        Records in-memory metrics events.
+    Raises:
+        - None.
+    """
+    recorder = _RecordingMetrics()
+    monkeypatch.setattr(
+        "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
+    )
+    monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "chapter_splitter.cli.new_correlation_id", lambda *_args, **_kwargs: "cid-1"
+    )
+    monkeypatch.setattr("chapter_splitter.cli.set_correlation_id", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "chapter_splitter.cli.register_signal_handlers", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr("chapter_splitter.cli._run_split", lambda *_args, **_kwargs: 0)
+
+    assert main(["split", "--pdf", "a.pdf", "--chapters", "c.toml"], metrics=recorder) == 0
+    assert (
+        "chapter_splitter.cli.command_total",
+        1,
+        {"command": "split", "result": "started"},
+    ) in recorder.counters
+    assert (
+        "chapter_splitter.cli.command_total",
+        1,
+        {"command": "split", "result": "success"},
+    ) in recorder.counters
+    assert (
+        "chapter_splitter.cli.command_seconds",
+        0.0,
+        {"command": "split"},
+    ) in recorder.observations

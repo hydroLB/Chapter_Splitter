@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from chapter_splitter.config.schema import DetectionConfig
-from chapter_splitter.core.runtime import CancellationToken
-from chapter_splitter.pdf.detection.toc import detect_chapters_from_toc_page
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.core import CancellationToken
+from chapter_splitter.pdf.detection import detect_chapters_from_toc_page
+from chapter_splitter.utils import Deadline
 
 
 @dataclass(frozen=True, slots=True)

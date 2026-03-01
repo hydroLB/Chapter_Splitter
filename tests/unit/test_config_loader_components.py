@@ -2,23 +2,30 @@
 
 from __future__ import annotations
 
+import importlib
+from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
-from chapter_splitter.config.loader.build.readers import (
+from chapter_splitter.config import ConfigRegistry, load_config
+from chapter_splitter.config.loader._internal import (
+    coerce_dict,
+    config_read_deadline,
     get_section,
     read_bool,
+    read_default_settings,
     read_float,
     read_int,
+    read_int_list,
     read_str,
+    read_str_list,
+    read_toml_file,
+    resolve_env_path,
+    settings_builder,
 )
-from chapter_splitter.config.loader.merge.deep_merge import coerce_dict
-from chapter_splitter.config.loader.sources import read_default_settings, resolve_env_path
-from chapter_splitter.config.loader.toml.reader import config_read_deadline, read_toml_file
-from chapter_splitter.config.registry import ConfigRegistry
-from chapter_splitter.core.errors import ConfigurationError
+from chapter_splitter.core import ConfigurationError
 
 
 def test_coerce_dict_rejects_non_dict() -> None:
@@ -225,6 +232,108 @@ def test_build_readers_validate_types() -> None:
         read_int(section, "name", "tests.unit.test_config_loader_components")
 
 
+def test_build_readers_cover_error_branches() -> None:
+    """Verify typed readers reject missing, blank, and malformed values.
+
+    Purpose:
+        Cover branch-level error handling in reader helpers and keep loader diagnostics stable.
+    Ties To:
+        Covers chapter_splitter.config.loader.build.readers.get_section and read_* helpers.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    location = "tests.unit.test_config_loader_components"
+    raw: dict[str, object] = {
+        "section": {
+            "name": "ok",
+            "flag": True,
+            "count": 3,
+            "ratio": 0.25,
+            "names": ["a", "b"],
+            "numbers": [1, 2, 3],
+        }
+    }
+    section = get_section(raw, "section", location)
+
+    with pytest.raises(ConfigurationError):
+        get_section(raw, "", location)
+    with pytest.raises(ConfigurationError):
+        get_section(raw, "missing", location)
+    with pytest.raises(ConfigurationError):
+        get_section({"section": 1}, "section", location)
+
+    with pytest.raises(ConfigurationError):
+        read_str(section, "flag", location)
+    with pytest.raises(ConfigurationError):
+        read_bool(section, "name", location)
+    with pytest.raises(ConfigurationError):
+        read_int({"count": True}, "count", location)
+    with pytest.raises(ConfigurationError):
+        read_float({"ratio": True}, "ratio", location)
+    with pytest.raises(ConfigurationError):
+        read_str(section, "", location)
+    with pytest.raises(ConfigurationError):
+        read_str(section, "missing", location)
+
+    assert read_str_list(section, "names", location) == ["a", "b"]
+    assert read_int_list(section, "numbers", location) == [1, 2, 3]
+    with pytest.raises(ConfigurationError):
+        read_str_list(section, "name", location)
+    with pytest.raises(ConfigurationError):
+        read_str_list({"names": [1]}, "names", location)
+    with pytest.raises(ConfigurationError):
+        read_int_list(section, "name", location)
+    with pytest.raises(ConfigurationError):
+        read_int_list({"numbers": [1, True]}, "numbers", location)
+
+
+def test_build_settings_rejects_invalid_root_and_literal_values() -> None:
+    """Verify settings builder enforces root type and literal enums.
+
+    Purpose:
+        Keep config builder failure paths deterministic and actionable.
+    Ties To:
+        Covers chapter_splitter.config.loader.build.settings.build_settings and helper readers.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        Loads packaged default settings and mutates copied dictionaries.
+    Raises:
+        - None.
+    """
+    location = "tests.unit.test_config_loader_components"
+    with pytest.raises(ConfigurationError):
+        settings_builder.build_settings(cast(dict[str, object], []), location)
+
+    defaults = read_default_settings(location)
+
+    invalid_collision = deepcopy(defaults)
+    io_section = cast(dict[str, object], invalid_collision["io"])
+    io_section["output_collision_policy"] = "invalid"
+    with pytest.raises(ConfigurationError):
+        settings_builder.build_settings(invalid_collision, location)
+
+    invalid_fit_mode = deepcopy(defaults)
+    ui_section = cast(dict[str, object], invalid_fit_mode["ui"])
+    ui_section["pdf_preview_fit_mode"] = "invalid"
+    with pytest.raises(ConfigurationError):
+        settings_builder.build_settings(invalid_fit_mode, location)
+
+    invalid_color_mode = deepcopy(defaults)
+    ui_section = cast(dict[str, object], invalid_color_mode["ui"])
+    ui_section["color_mode"] = "invalid"
+    with pytest.raises(ConfigurationError):
+        settings_builder.build_settings(invalid_color_mode, location)
+
+
 def test_config_registry_get_requires_load() -> None:
     """Verify registry enforces load-before-get usage.
 
@@ -288,3 +397,63 @@ def test_config_read_deadline_integration_raises_cancellation(
     monkeypatch.setenv("CHAPTER_SPLITTER_CONFIG_TIMEOUT_SECONDS", "0")
     with pytest.raises(ConfigurationError):
         config_read_deadline("tests.unit.test_config_loader_components")
+
+
+def test_load_config_is_stateless_and_delegates_to_loader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify module-level load_config no longer depends on global mutable state.
+
+    Purpose:
+        Lock in explicit loader delegation so configuration state stays boundary-local.
+    Ties To:
+        Covers chapter_splitter.config.load_config.
+    Inputs:
+        - monkeypatch: Pytest monkeypatch fixture.
+    Outputs:
+        - None.
+    Side Effects:
+        Monkeypatches the config loader wrapper.
+    Raises:
+        - None.
+    """
+    calls: list[tuple[Path | None, str]] = []
+    sentinel_one = object()
+    sentinel_two = object()
+    responses = [sentinel_one, sentinel_two]
+
+    def _fake_loader(config_path: Path | None, location: str) -> object:
+        calls.append((config_path, location))
+        return responses.pop(0)
+
+    monkeypatch.setattr("chapter_splitter.config._load_settings", _fake_loader)
+
+    first = load_config(None, "tests.unit.test_config_loader_components.first")
+    second = load_config(None, "tests.unit.test_config_loader_components.second")
+
+    assert first is sentinel_one
+    assert second is sentinel_two
+    assert calls == [
+        (None, "tests.unit.test_config_loader_components.first"),
+        (None, "tests.unit.test_config_loader_components.second"),
+    ]
+
+
+def test_registry_module_has_no_global_singleton_state() -> None:
+    """Verify the registry module does not expose hidden global mutable singleton state.
+
+    Purpose:
+        Prevent regressions that reintroduce process-global config state.
+    Ties To:
+        Covers chapter_splitter.config.registry module contract.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    config_registry_module = importlib.import_module("chapter_splitter.config.registry")
+    assert not hasattr(config_registry_module, "_REGISTRY")

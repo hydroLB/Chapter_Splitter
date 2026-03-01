@@ -9,8 +9,7 @@ from types import FrameType
 
 import pytest
 
-from chapter_splitter.core.errors import CancellationError
-from chapter_splitter.core.runtime import CancellationToken, register_signal_handlers
+from chapter_splitter.core import CancellationError, CancellationToken, register_signal_handlers
 
 
 def test_cancellation_token_requires_reason() -> None:

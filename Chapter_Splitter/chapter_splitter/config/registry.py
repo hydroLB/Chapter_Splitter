@@ -10,12 +10,12 @@ from .schema import Settings
 
 
 class ConfigRegistry:
-    """Singleton style registry for application settings.
+    """Explicit registry object for application settings.
 
     Purpose:
-        Provide a single source of truth for loaded configuration.
+        Provide caller-owned storage for loaded configuration.
     Ties To:
-        Used by load_config and get_config in entry points and modules.
+        Used by tests and explicit wiring where in-memory settings reuse is desired.
     Inputs:
         - None.
     Outputs:
@@ -90,45 +90,3 @@ class ConfigRegistry:
                 )
             )
         return self._settings
-
-
-_REGISTRY = ConfigRegistry()
-
-
-def load_config(config_path: Path | None, location: str) -> Settings:
-    """Load settings into the global registry.
-
-    Purpose:
-        Provide a module level helper for entry points.
-    Ties To:
-        Called by app and CLI main functions.
-    Inputs:
-        - config_path: Optional path to a user config file.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - Settings object.
-    Side Effects:
-        Loads and stores settings in the global registry.
-    Raises:
-        - ConfigurationError: When settings fail to load.
-    """
-    return _REGISTRY.load(config_path, location)
-
-
-def get_config(location: str) -> Settings:
-    """Return settings from the global registry.
-
-    Purpose:
-        Provide module level access to loaded settings.
-    Ties To:
-        Used by runtime modules to avoid passing settings everywhere.
-    Inputs:
-        - location: Fully qualified module and method name.
-    Outputs:
-        - Settings object.
-    Side Effects:
-        None.
-    Raises:
-        - ConfigurationError: When settings have not been loaded.
-    """
-    return _REGISTRY.get(location)

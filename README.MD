@@ -1,43 +1,58 @@
 # PDF Chapter Splitter
 
-PDF Chapter Splitter is a focused desktop tool for exporting chapter PDFs with a clean, config driven workflow. It is built to keep the split pipeline independent from the UI so the project can grow without rewrites.
+PDF Chapter Splitter is a production-grade desktop and CLI tool for exporting chapter PDFs from a
+source document. The codebase is organized so PDF domain logic can evolve independently from the
+UI layer.
 
-## Setup
+## Quickstart
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.lock
-```
+Python is pinned in `.python-version` and CI uses the same runtime.
 
-Optional extras:
-
-- Embedded preview and review rendering (PyMuPDF):
+Install deterministic dependencies and local tooling:
 
 ```bash
-pip install -e '.[preview]'
+make install-dev
 ```
 
-Development tools and quality gates:
+Run the desktop workflow:
 
 ```bash
-pip install -r requirements-dev.lock
-pre-commit install
+make dev
 ```
 
-## Run
+Verify the full repository quality gate:
+
+```bash
+make check
+```
+
+If you prefer zero setup commands, use:
+
+```bash
+./start
+```
+
+## Deterministic Commands
+
+| Command | Purpose |
+| --- | --- |
+| `make install-dev` | Install pinned runtime and development dependencies |
+| `make dev` | Launch local app flow (`MODE=gui` by default) |
+| `make lint` | Run formatter check and linter |
+| `make typecheck` | Run strict `mypy` checks |
+| `make boundaries` | Enforce layered import dependency direction |
+| `make test` | Run tests with coverage gate |
+| `make security` | Run Bandit and dependency audit |
+| `make release-check` | Enforce release/version/changelog policy checks |
+| `make check` | Run all checks used by CI |
+
+## Usage
 
 GUI:
 
 ```bash
-chapter-splitter gui
+make dev
 ```
-
-Inside the GUI, use:
-
-- `Import TOML` to load an existing `chapters.toml` and prefill the grid
-- `Export TOML` to write the current chapter list to a file
-- `Save Session` to export chapters plus `[session]` metadata for repeat runs
 
 CLI split:
 
@@ -45,13 +60,7 @@ CLI split:
 chapter-splitter split --pdf path/to/book.pdf --chapters path/to/chapters.toml
 ```
 
-One-off overrides (no config file):
-
-```bash
-chapter-splitter split --pdf path/to/book.pdf --chapters path/to/chapters.toml --output-dir out --collision-policy suffix --page-offset 0
-```
-
-CLI detect (generate a starter `chapters.toml` from outlines or TOC):
+CLI detect:
 
 ```bash
 chapter-splitter detect --pdf path/to/book.pdf --strategy auto --out chapters.toml
@@ -71,76 +80,89 @@ start_page = 5
 end_page = 18
 ```
 
+## Environment Variables
+
+See `.env.example` for a starter set. Supported variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CHAPTER_SPLITTER_CONFIG` | unset | Path to config override file used by app/CLI config loader |
+| `CHAPTER_SPLITTER_CONFIG_TIMEOUT_SECONDS` | `5.0` | Timeout for reading config files |
+| `CHAPTER_SPLITTER_MODE` | `gui` | `start` script mode (`gui` or `split`) |
+| `CHAPTER_SPLITTER_CONFIG_PATH` | unset | Config path override used by `start` script |
+| `PDF_PATH` | unset | PDF path for `CHAPTER_SPLITTER_MODE=split` in `start` |
+| `CHAPTERS_PATH` | unset | Chapter TOML path for `CHAPTER_SPLITTER_MODE=split` in `start` |
+
 ## Configuration
 
-All tunable behavior lives in `Chapter_Splitter/chapter_splitter/config/settings.toml`. Overrides are supported via a file path:
+Central defaults live in `Chapter_Splitter/chapter_splitter/config/settings.toml`.
+
+Runtime override from file:
 
 ```bash
 chapter-splitter --config path/to/override.toml gui
 ```
 
-Or through an environment variable:
-
-```bash
-export CHAPTER_SPLITTER_CONFIG=path/to/override.toml
-```
-
-Config file reads are time bounded with an environment override:
-
-```bash
-export CHAPTER_SPLITTER_CONFIG_TIMEOUT_SECONDS=5.0
-```
-
-Key sections to know:
-
-- `app` controls title and correlation ID prefix
-- `logging` controls structured JSON output and redaction
-- `io` controls timeouts, output naming, and collision policy
-- `ui` controls grid sizing, labels, and dialog text
-- `validation` defines chapter limits and uniqueness rules
-- `performance` sets benchmark budgets
-
-Useful `io` knobs:
-
-- `io.page_offset` aligns user-entered page numbers with PDF indices
-- `io.infer_page_offset_from_labels` can auto-infer an offset from PDF page labels when present (see also `io.infer_page_offset_min_sequential_numeric_labels`)
-
-## Testing
-
-Unit, integration, and end to end tests:
-
-```bash
-pytest
-```
-
-Performance baselines and profiling:
-
-```bash
-python scripts/update_benchmarks.py
-python scripts/profile_split.py
-```
+Important config areas:
+- `app` for title and correlation ID prefix.
+- `logging` for structured logs and redaction rules.
+- `io` for timeouts, output naming, and collision policy.
+- `validation` for chapter rules.
+- `detection` for outlines and TOC parsing behavior.
+- `performance` for benchmark budgets and iterations.
 
 ## Troubleshooting
 
-- Missing `pypdf`: install with `pip install pypdf==6.6.2`
-- Config errors: check `Chapter_Splitter/chapter_splitter/config/settings.toml` and any overrides
-- Output collisions: set `io.output_collision_policy = "overwrite"` or `"suffix"`, or change `io.output_dir_suffix`
-- UI actions ignored: increase `ui.action_rate_limit_seconds` if the OS is slow
+- GUI fails to launch: run `make install-dev` and retry `make dev`.
+- Config load failure: verify TOML syntax and paths in `CHAPTER_SPLITTER_CONFIG` or `--config`.
+- Split mode from `start` fails: ensure `PDF_PATH` and `CHAPTERS_PATH` are set to existing files.
+- Output collisions: set `io.output_collision_policy` to `overwrite` or `suffix`.
+- Slow or interrupted operations: verify `io.operation_timeout_seconds` and `retry` settings.
 
-## Architecture Overview
+## Testing and Performance
 
-- Config loading and deep-merge live in `Chapter_Splitter/chapter_splitter/config/loader/api.py`, and validation lives in `Chapter_Splitter/chapter_splitter/config/schema/settings.py` plus the per-section schema under `Chapter_Splitter/chapter_splitter/config/schema/sections/`
-- Structured logging, redaction, and correlation IDs are in `Chapter_Splitter/chapter_splitter/observability/logging.py`
-- PDF outline detection is implemented in `Chapter_Splitter/chapter_splitter/pdf/detection/outlines.py`
-- The split pipeline is in `Chapter_Splitter/chapter_splitter/pdf/splitting/splitter.py` and uses strict validation from `Chapter_Splitter/chapter_splitter/core/validation.py`
-- Qt GUI workflow and widgets are in `Chapter_Splitter/chapter_splitter/ui/qt/workflow.py` and `Chapter_Splitter/chapter_splitter/ui/qt/main_window.py`
+Run tests:
 
-## Implementation Notes
+```bash
+make test
+```
 
-- The config loader merges defaults with overrides and validates every field before use to keep tuning safe and centralized
-- Logging is structured, redacted, and tagged with correlation IDs to make troubleshooting precise
-- The split workflow uses deadlines, retries, and cancellation checks so IO cannot hang indefinitely
-- Performance baselines in `benchmarks/baseline.json` guard the hot paths and are updated with `scripts/update_benchmarks.py`
+`make test` enforces the repository coverage gate (`fail-under=90`) and fails when coverage drops
+below that threshold.
+
+Update performance baselines:
+
+```bash
+python scripts/update_benchmarks.py
+```
+
+Profile core split path:
+
+```bash
+python scripts/profile_split.py
+```
+
+## Architecture Snapshot
+
+- Config load and validation: `Chapter_Splitter/chapter_splitter/config/`
+- Domain models and validation rules: `Chapter_Splitter/chapter_splitter/core/`
+- PDF detection and splitting: `Chapter_Splitter/chapter_splitter/pdf/`
+- Chapter file IO: `Chapter_Splitter/chapter_splitter/io/chapters.py`
+- Structured logging and correlation IDs: `Chapter_Splitter/chapter_splitter/observability/logging.py`
+- Qt workflow and widgets: `Chapter_Splitter/chapter_splitter/ui/qt/`
+
+## Governance
+
+- Contribution guide: `CONTRIBUTING.md`
+- Security policy: `SECURITY.md`
+- Dependency update automation: `.github/dependabot.yml`
+- Incident runbooks: `docs/runbooks/`
+- Architecture narrative: `docs/architecture.md`
+- ADRs: `docs/adr/`
+- Design principles: `docs/design-principles.md`
+- Performance and resilience governance: `docs/performance-governance.md`
+- Release notes and process: `CHANGELOG.md` and `RELEASE.md`
+- Ownership map: `.github/CODEOWNERS`
 
 ## Screenshots
 
@@ -148,22 +170,17 @@ python scripts/profile_split.py
 
 ![Export flow](README_IMAGES/export_example.png)
 
-## Build and Release
+## Build and Bundle
 
-Build:
+Build package:
 
 ```bash
 python -m build
 ```
 
-Desktop bundling (PyInstaller):
+Build desktop bundle:
 
 ```bash
 pip install -e '.[bundle]'
 python scripts/bundle_pyinstaller.py --target gui
 ```
-
-Release process:
-
-- `CHANGELOG.md` and `RELEASE.md` outline the steps
-- Tags follow the version in `pyproject.toml`

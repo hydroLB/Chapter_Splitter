@@ -21,8 +21,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from .config import load_config
-from .core.errors import CancellationError, ChapterSplitterError, format_error_message
+from .config.loader import load_settings
+from .config.schema import Settings
+from .core.error_mapping import map_error
 from .core.runtime import CancellationToken, register_signal_handlers
 from .observability.logging import (
     configure_logging,
@@ -30,16 +31,24 @@ from .observability.logging import (
     new_correlation_id,
     set_correlation_id,
 )
+from .observability.metrics import MetricsSink, NoOpMetrics
 from .ui.qt.workflow import workflow
 
 logger = logging.getLogger(__name__)
 
 
-def main(config_path: Path | None = None) -> int:
+def main(
+    config_path: Path | None = None,
+    settings: Settings | None = None,
+    *,
+    metrics: MetricsSink | None = None,
+) -> int:
     """Run the GUI application workflow.
 
     Inputs:
         - config_path: Optional path to a configuration file.
+        - settings: Optional pre-loaded settings instance injected by callers.
+        - metrics: Optional metrics sink for counters and timers.
     Outputs:
         - Exit code integer for the process.
     Side effects:
@@ -52,9 +61,10 @@ def main(config_path: Path | None = None) -> int:
         Desktop packaging expects a single entrypoint that returns an integer exit code.
     """
     location = "chapter_splitter.app.main"
-    settings = load_config(config_path, location)
-    configure_logging(settings.app, settings.logging)
-    correlation_id = new_correlation_id(settings.app.correlation_id_prefix, location)
+    resolved_settings = settings or load_settings(config_path, location)
+    metrics_sink = metrics or NoOpMetrics()
+    configure_logging(resolved_settings.app, resolved_settings.logging)
+    correlation_id = new_correlation_id(resolved_settings.app.correlation_id_prefix, location)
     set_correlation_id(correlation_id, location)
 
     token = CancellationToken()
@@ -81,46 +91,50 @@ def main(config_path: Path | None = None) -> int:
 
     register_signal_handlers(token, logger, _shutdown, location)
 
-    log_event(
-        logger,
-        logging.INFO,
-        "app_started",
-        f"{settings.app.title} started",
-        {"title": settings.app.title},
-    )
-
-    try:
-        workflow(settings, token)
-        return 0
-    except CancellationError as exc:
-        log_event(
-            logger,
-            logging.WARNING,
-            "app_cancelled",
-            format_error_message(location, str(exc)),
-            {"reason": str(exc)},
-        )
-        return 130
-    except ChapterSplitterError as exc:
-        log_event(
-            logger,
-            logging.ERROR,
-            "app_error",
-            format_error_message(location, str(exc)),
-            {"reason": str(exc)},
-        )
-        return 1
-    except Exception as exc:  # pragma: no cover
-        logger.exception(
-            "Unhandled exception",
-            extra={"event": "app_unhandled_exception", "reason": str(exc)},
-        )
-        return 1
-    finally:
+    metrics_sink.increment("chapter_splitter.app.start_total", tags={"entrypoint": "app"})
+    with metrics_sink.timer(
+        "chapter_splitter.app.runtime_seconds",
+        tags={"entrypoint": "app"},
+    ):
         log_event(
             logger,
             logging.INFO,
-            "app_stopped",
-            f"{settings.app.title} stopped",
-            {"title": settings.app.title},
+            "app_started",
+            f"{resolved_settings.app.title} started",
+            {"title": resolved_settings.app.title},
         )
+        try:
+            workflow(resolved_settings, token)
+            return 0
+        except Exception as exc:
+            payload = map_error(exc, channel="app", location=location)
+            metrics_sink.increment(
+                "chapter_splitter.app.error_total",
+                tags={
+                    "error_code": payload.code.value,
+                    "event": payload.event,
+                },
+            )
+            if payload.event == "app_unhandled_exception":
+                logger.exception(
+                    "Unhandled exception",
+                    extra=payload.log_fields(location=location) | {"event": payload.event},
+                )
+                return payload.exit_code
+            log_event(
+                logger,
+                payload.log_level,
+                payload.event,
+                payload.message,
+                payload.log_fields(location=location),
+            )
+            return payload.exit_code
+        finally:
+            metrics_sink.increment("chapter_splitter.app.stop_total", tags={"entrypoint": "app"})
+            log_event(
+                logger,
+                logging.INFO,
+                "app_stopped",
+                f"{resolved_settings.app.title} stopped",
+                {"title": resolved_settings.app.title},
+            )

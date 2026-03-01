@@ -8,6 +8,7 @@ from typing import Literal
 from ....core.errors import ConfigurationError, format_error_message
 
 PdfPreviewFitMode = Literal["page", "width", "none"]
+UIColorMode = Literal["light", "dark", "auto"]
 
 
 class UIConfig:
@@ -77,6 +78,7 @@ class UIConfig:
         enable_keyboard_shortcuts: bool,
         show_status_bar: bool,
         status_hint: str,
+        color_mode: UIColorMode,
         enable_pdf_preview: bool,
         pdf_preview_zoom: float,
         pdf_preview_fit_mode: PdfPreviewFitMode,
@@ -147,6 +149,7 @@ class UIConfig:
             - open_output_dir_prompt_message_template: Template for the prompt message.
             - enable_keyboard_shortcuts: Whether the chapter window binds keyboard shortcuts.
             - status_hint: Status bar hint displayed at the bottom of the window.
+            - color_mode: Preferred color mode (light, dark, auto).
             - enable_pdf_preview: Whether the chapter window shows an embedded PDF preview panel.
             - pdf_preview_zoom: Render zoom factor for the embedded preview.
             - pdf_preview_fit_mode: Default fit mode for embedded preview (page, width, none).
@@ -217,6 +220,7 @@ class UIConfig:
         self.enable_keyboard_shortcuts = enable_keyboard_shortcuts
         self.show_status_bar = show_status_bar
         self.status_hint = status_hint
+        self.color_mode = color_mode
         self.enable_pdf_preview = enable_pdf_preview
         self.pdf_preview_zoom = pdf_preview_zoom
         self.pdf_preview_fit_mode = pdf_preview_fit_mode
@@ -513,6 +517,13 @@ class UIConfig:
                 format_error_message(
                     error_location,
                     f"ui.status_hint must be non empty.{context}",
+                )
+            )
+        if self.color_mode not in ("light", "dark", "auto"):
+            raise ConfigurationError(
+                format_error_message(
+                    error_location,
+                    f"ui.color_mode must be one of: light, dark, auto.{context}",
                 )
             )
         if self.pdf_preview_zoom <= 0:

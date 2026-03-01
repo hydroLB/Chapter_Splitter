@@ -11,11 +11,10 @@ from tests.shared.pdf_factory import create_sample_pdf
 
 from chapter_splitter.config.loader import load_settings
 from chapter_splitter.config.schema import IOConfig
-from chapter_splitter.core.models import ChapterDefinition
-from chapter_splitter.core.runtime import CancellationToken
-from chapter_splitter.pdf.detection.outlines import detect_chapters_from_outlines
-from chapter_splitter.pdf.splitting.splitter import split_pdf_into_chapters
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.core import CancellationToken, ChapterDefinition
+from chapter_splitter.pdf.detection import detect_chapters_from_outlines
+from chapter_splitter.pdf.splitting import split_pdf_into_chapters
+from chapter_splitter.utils import Deadline
 
 BASELINE_PATH = Path("benchmarks/baseline.json")
 

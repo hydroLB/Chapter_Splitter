@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -30,6 +31,8 @@ from ...core.models import ChapterDefinition
 from .widgets.chapters_table import ChaptersTableWidget
 from .widgets.pdf_viewer import PdfViewerWidget
 from .widgets.review_panel import ReviewPanelWidget
+
+StatusLevel = Literal["ready", "working", "success", "error"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,6 +283,33 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception:
             return False
 
+    def set_status(self, *, level: StatusLevel, text: str) -> None:
+        """Set the status badge text and semantic level.
+
+        Summary:
+            Update status text with one of the semantic levels used by the global theme.
+        Inputs:
+            - level: Status level (ready, working, success, error).
+            - text: Human-readable status message.
+        Outputs:
+            - None.
+        Side effects:
+            Mutates the status label text and dynamic properties.
+        Error handling:
+            No-ops when status widgets are not initialized.
+        Ties to other methods:
+            Called by ui.qt.workflow during detect, import, and export actions.
+        Why this exists:
+            Status feedback should be immediate and consistent across all workflow phases.
+        """
+        try:
+            self._status_label.setText(text)
+            self._status_label.setProperty("status_level", level)
+            self._status_label.style().unpolish(self._status_label)
+            self._status_label.style().polish(self._status_label)
+        except Exception:
+            return
+
     def _build(self) -> None:
         """Build the window layout and internal widgets.
 
@@ -307,6 +337,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1300, 860)
 
         central = QtWidgets.QWidget(self)
+        central.setObjectName("chapterSplitterRoot")
         root = QtWidgets.QVBoxLayout(central)
         root.setContentsMargins(12, 12, 12, 12)
         root.setSpacing(10)
@@ -315,16 +346,26 @@ class MainWindow(QtWidgets.QMainWindow):
         splitter.setChildrenCollapsible(False)
 
         left = QtWidgets.QWidget(splitter)
+        left.setProperty("container_role", "outer_section")
         left_layout = QtWidgets.QVBoxLayout(left)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setContentsMargins(10, 10, 10, 10)
         left_layout.setSpacing(10)
-        left_layout.addWidget(self._viewer, 1)
+
+        viewer_frame = QtWidgets.QWidget(left)
+        viewer_frame.setProperty("container_role", "inset_content")
+        viewer_layout = QtWidgets.QVBoxLayout(viewer_frame)
+        viewer_layout.setContentsMargins(8, 8, 8, 8)
+        viewer_layout.setSpacing(8)
+        viewer_layout.addWidget(self._viewer, 1)
+        left_layout.addWidget(viewer_frame, 1)
 
         boundary_row = QtWidgets.QHBoxLayout()
         boundary_row.setContentsMargins(0, 0, 0, 0)
         boundary_row.setSpacing(10)
         self._set_start = QtWidgets.QPushButton("Set Start", left)
+        self._set_start.setProperty("button_role", "default")
         self._set_end = QtWidgets.QPushButton("Set End", left)
+        self._set_end.setProperty("button_role", "default")
         boundary_row.addWidget(self._set_start, 1)
         boundary_row.addWidget(self._set_end, 1)
         left_layout.addLayout(boundary_row)
@@ -334,21 +375,36 @@ class MainWindow(QtWidgets.QMainWindow):
         self._tabs.setMovable(False)
 
         chapters_tab = QtWidgets.QWidget(self._tabs)
-        chapters_layout = QtWidgets.QVBoxLayout(chapters_tab)
+        chapters_shell = QtWidgets.QVBoxLayout(chapters_tab)
+        chapters_shell.setContentsMargins(0, 0, 0, 0)
+        chapters_shell.setSpacing(0)
+        chapters_container = QtWidgets.QWidget(chapters_tab)
+        chapters_container.setProperty("container_role", "outer_section")
+        chapters_shell.addWidget(chapters_container, 1)
+        chapters_layout = QtWidgets.QVBoxLayout(chapters_container)
         chapters_layout.setContentsMargins(12, 12, 12, 12)
         chapters_layout.setSpacing(10)
 
         header = QtWidgets.QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         header.setSpacing(10)
-        header_label = QtWidgets.QLabel("Chapters", chapters_tab)
+        header_label = QtWidgets.QLabel("Chapters", chapters_container)
+        header_label.setProperty("text_role", "section_header")
         font = header_label.font()
         font.setPointSize(max(11, font.pointSize()))
         font.setWeight(QtGui.QFont.Weight.DemiBold)
         header_label.setFont(font)
-        header.addWidget(header_label, 1)
+        header.addWidget(header_label, 0)
 
-        self._add_btn = QtWidgets.QToolButton(chapters_tab)
+        self._active_row_label = QtWidgets.QLabel(
+            "Editing: No chapter selected",
+            chapters_container,
+        )
+        self._active_row_label.setProperty("text_role", "hint")
+        header.addWidget(self._active_row_label, 1)
+
+        self._add_btn = QtWidgets.QToolButton(chapters_container)
+        self._add_btn.setProperty("button_role", "toolbar")
         self._add_btn.setText(self._ui_config.add_button_label)
         self._add_btn.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         add_menu = QtWidgets.QMenu(self._add_btn)
@@ -359,18 +415,30 @@ class MainWindow(QtWidgets.QMainWindow):
 
         chapters_layout.addLayout(header)
 
+        chapters_frame = QtWidgets.QWidget(chapters_container)
+        chapters_frame.setProperty("container_role", "inset_content")
+        chapters_frame_layout = QtWidgets.QVBoxLayout(chapters_frame)
+        chapters_frame_layout.setContentsMargins(8, 8, 8, 8)
+        chapters_frame_layout.setSpacing(0)
         self._chapters = ChaptersTableWidget(
             total_pages=self._total_pages,
             title_prefix=self._ui_config.chapter_title_prefix,
-            parent=chapters_tab,
+            parent=chapters_frame,
         )
-        chapters_layout.addWidget(self._chapters, 1)
+        chapters_frame_layout.addWidget(self._chapters, 1)
+        chapters_layout.addWidget(chapters_frame, 1)
 
         review_tab = QtWidgets.QWidget(self._tabs)
-        review_layout = QtWidgets.QVBoxLayout(review_tab)
+        review_shell = QtWidgets.QVBoxLayout(review_tab)
+        review_shell.setContentsMargins(0, 0, 0, 0)
+        review_shell.setSpacing(0)
+        review_container = QtWidgets.QWidget(review_tab)
+        review_container.setProperty("container_role", "outer_section")
+        review_shell.addWidget(review_container, 1)
+        review_layout = QtWidgets.QVBoxLayout(review_container)
         review_layout.setContentsMargins(12, 12, 12, 12)
         review_layout.setSpacing(10)
-        self._review_panel = ReviewPanelWidget(review_tab)
+        self._review_panel = ReviewPanelWidget(review_container)
         review_layout.addWidget(self._review_panel, 1)
 
         self._tabs.addTab(chapters_tab, "Chapters")
@@ -388,6 +456,7 @@ class MainWindow(QtWidgets.QMainWindow):
         action_bar.setSpacing(10)
 
         self._file_btn = QtWidgets.QToolButton(central)
+        self._file_btn.setProperty("button_role", "toolbar")
         self._file_btn.setText("File")
         self._file_btn.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         self._file_menu = QtWidgets.QMenu(self._file_btn)
@@ -395,19 +464,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self._file_btn.setMenu(self._file_menu)
 
         self._detect_btn = QtWidgets.QToolButton(central)
+        self._detect_btn.setProperty("button_role", "toolbar")
         self._detect_btn.setText(self._ui_config.auto_detect_button_label)
         self._detect_btn.setToolTip("Auto-detect chapters and apply results automatically.")
 
         action_bar.addWidget(self._file_btn, 0)
         action_bar.addWidget(self._detect_btn, 0)
         self._undo_btn = QtWidgets.QToolButton(central)
+        self._undo_btn.setProperty("button_role", "toolbar")
         self._undo_btn.setText(self._ui_config.undo_button_label)
         self._undo_btn.setEnabled(False)
         self._undo_btn.setToolTip("Undo the last Auto Detect apply")
         action_bar.addWidget(self._undo_btn, 0)
+        self._status_label = QtWidgets.QLabel("Ready", central)
+        self._status_label.setProperty("text_role", "status")
+        self._status_label.setProperty("status_level", "ready")
+        action_bar.addWidget(self._status_label, 0)
         action_bar.addStretch(1)
 
         self._export_btn = QtWidgets.QToolButton(central)
+        self._export_btn.setProperty("button_role", "toolbar")
         self._export_btn.setText(self._ui_config.export_button_label)
         self._export_btn.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         self._export_menu = QtWidgets.QMenu(self._export_btn)
@@ -419,10 +495,19 @@ class MainWindow(QtWidgets.QMainWindow):
         action_bar.addWidget(self._export_btn, 0)
 
         self._done_btn = QtWidgets.QPushButton(self._ui_config.close_button_label, central)
+        self._done_btn.setProperty("button_role", "primary_cta")
+        self._done_btn.setMinimumHeight(36)
         action_bar.addWidget(self._done_btn, 0)
 
         root.addLayout(action_bar)
         self.setCentralWidget(central)
+        self._root_layout = root
+        self._left_layout = left_layout
+        self._viewer_layout = viewer_layout
+        self._boundary_row_layout = boundary_row
+        self._chapters_layout = chapters_layout
+        self._review_layout = review_layout
+        self._action_bar_layout = action_bar
 
         self._tabs.currentChanged.connect(self._on_tab_changed)
         self._add_blank_action.triggered.connect(self._on_add_blank)
@@ -433,6 +518,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._chapters.active_row_changed.connect(self._on_active_row_changed)
         self._sync_export_state()
         self._refresh_active_row_context()
+        self.set_status(level="ready", text="Ready")
+        self._apply_density_for_size(self.width(), self.height())
 
     def _wire_actions(self) -> None:
         """Connect workflow callbacks to UI triggers.
@@ -553,11 +640,13 @@ class MainWindow(QtWidgets.QMainWindow):
             summary = None
 
         if summary is None:
+            self._active_row_label.setText("Editing: No chapter selected")
             self._set_start.setToolTip("Set start for the selected chapter to the current page.")
             self._set_end.setToolTip("Set end for the selected chapter to the current page.")
             return
 
         _row_index, text = summary
+        self._active_row_label.setText(f"Editing: {text}")
         self._set_start.setToolTip(f"Set start for {text} to the current page.")
         self._set_end.setToolTip(f"Set end for {text} to the current page.")
 
@@ -613,6 +702,94 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         except Exception:
             return
+
+    def _apply_density_for_size(self, width_px: int, height_px: int) -> None:
+        """Apply compact spacing and typography when the window is constrained.
+
+        Summary:
+            Reduce margins, spacing, and row heights for smaller window sizes.
+        Inputs:
+            - width_px: Current window width in pixels.
+            - height_px: Current window height in pixels.
+        Outputs:
+            - None.
+        Side effects:
+            Mutates layout spacing, margins, and table density.
+        Error handling:
+            Best-effort only; no-ops if layouts are not initialized.
+        Ties to other methods:
+            Called during _build and resizeEvent.
+        Why this exists:
+            Smaller windows need tighter density to preserve usable editing space.
+        """
+        compact = int(width_px) < 1120 or int(height_px) < 760
+        root_margin = 8 if compact else 12
+        section_margin = 8 if compact else 12
+        inset_margin = 6 if compact else 8
+        spacing = 8 if compact else 10
+        try:
+            self._root_layout.setContentsMargins(
+                root_margin,
+                root_margin,
+                root_margin,
+                root_margin,
+            )
+            self._root_layout.setSpacing(spacing)
+            self._left_layout.setContentsMargins(
+                section_margin,
+                section_margin,
+                section_margin,
+                section_margin,
+            )
+            self._left_layout.setSpacing(spacing)
+            self._viewer_layout.setContentsMargins(
+                inset_margin,
+                inset_margin,
+                inset_margin,
+                inset_margin,
+            )
+            self._viewer_layout.setSpacing(spacing)
+            self._boundary_row_layout.setSpacing(spacing)
+            self._chapters_layout.setContentsMargins(
+                section_margin,
+                section_margin,
+                section_margin,
+                section_margin,
+            )
+            self._chapters_layout.setSpacing(spacing)
+            self._review_layout.setContentsMargins(
+                section_margin,
+                section_margin,
+                section_margin,
+                section_margin,
+            )
+            self._review_layout.setSpacing(spacing)
+            self._action_bar_layout.setSpacing(spacing)
+            self._done_btn.setMinimumHeight(34 if compact else 36)
+            self._chapters.set_compact_mode(compact)
+        except Exception:
+            return
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:  # noqa: N802
+        """Handle resize events.
+
+        Summary:
+            Recompute compact density rules after window size changes.
+        Inputs:
+            - event: Qt resize event.
+        Outputs:
+            - None.
+        Side effects:
+            Updates layout density.
+        Error handling:
+            Best-effort only and always calls the base implementation.
+        Ties to other methods:
+            Calls _apply_density_for_size.
+        Why this exists:
+            Density should adapt automatically when users resize the window.
+        """
+        super().resizeEvent(event)
+        self._apply_density_for_size(self.width(), self.height())
 
     def chapters(self) -> list[ChapterDefinition]:
         """Return current chapters from the table.

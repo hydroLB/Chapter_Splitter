@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from chapter_splitter.config.schema import DetectionConfig
-from chapter_splitter.core.runtime import CancellationToken
-from chapter_splitter.pdf.detection.detector import DetectionRequest, detect_chapters_in_reader
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.core import CancellationToken
+from chapter_splitter.pdf.detection import DetectionRequest, detect_chapters_in_reader
+from chapter_splitter.utils import Deadline
 
 
 @dataclass(frozen=True, slots=True)

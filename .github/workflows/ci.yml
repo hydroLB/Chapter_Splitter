@@ -13,18 +13,20 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version-file: ".python-version"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            pyproject.toml
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r requirements-dev.txt
-          python -m pip install -e .
-      - name: Format check
-        run: ruff format --check .
+        run: make install-dev
       - name: Lint
-        run: ruff check .
+        run: make lint
       - name: Type check
-        run: mypy --config-file pyproject.toml
+        run: make typecheck
+      - name: Import boundaries
+        run: make boundaries
       - name: Detect touched UI/workflow files
         id: touched_ui_workflow
         shell: bash
@@ -47,7 +49,7 @@ jobs:
             git diff --name-only "${base_sha}" "${GITHUB_SHA}" > /tmp/changed_files.txt
           fi
 
-          awk '/^Chapter_Splitter\/chapter_splitter\/ui\/tk\/.*\.py$/' \
+          awk '/^Chapter_Splitter\/chapter_splitter\/ui\/qt\/.*\.py$/' \
             /tmp/changed_files.txt > /tmp/touched_ui_workflow_files.txt || true
 
           file_count="$(wc -l < /tmp/touched_ui_workflow_files.txt | tr -d ' ')"
@@ -69,13 +71,37 @@ jobs:
           xargs -0 ruff check --select W < /tmp/touched_ui_workflow_files.nul
           xargs -0 mypy --config-file pyproject.toml < /tmp/touched_ui_workflow_files.nul
       - name: Tests
+        run: make test
+      - name: Build coverage artifact
+        if: always()
+        shell: bash
         run: |
-          coverage run -m pytest -W error
-          coverage report --fail-under=90
+          set -euo pipefail
+          if [[ -f ".coverage" ]]; then
+            coverage xml -o coverage.xml
+          fi
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-coverage
+          path: |
+            .coverage
+            coverage.xml
+          if-no-files-found: warn
       - name: Security scan
-        run: bandit -c pyproject.toml -r Chapter_Splitter/chapter_splitter
-      - name: Dependency audit
-        run: pip-audit -r requirements.txt -r requirements-dev.txt
+        run: make security
+      - name: Release discipline
+        run: make release-check
+      - name: Build package
+        run: make build
+      - name: Upload build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-dist
+          path: dist/*
+          if-no-files-found: error
 
   secret-scan:
     runs-on: ubuntu-latest
