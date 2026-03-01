@@ -17,4 +17,3 @@ Why this exists:
 """
 
 from __future__ import annotations
-

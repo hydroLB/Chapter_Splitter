@@ -1,0 +1,11 @@
+# Default owner for all repository files
+* @liamsamson
+
+# Core product areas
+/Chapter_Splitter/chapter_splitter/ @liamsamson
+/tests/ @liamsamson
+/scripts/ @liamsamson
+
+# Governance and automation
+/.github/ @liamsamson
+/*.md @liamsamson

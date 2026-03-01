@@ -7,8 +7,8 @@ import time
 
 import pytest
 
-from chapter_splitter.core.errors import CancellationError
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.core import CancellationError
+from chapter_splitter.utils import Deadline
 
 
 def test_deadline_rejects_non_finite_timeout() -> None:

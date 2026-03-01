@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from chapter_splitter.core.errors import IoError
-from chapter_splitter.utils.viewer import open_path_in_default_viewer
+from chapter_splitter.core import IoError
+from chapter_splitter.utils import open_path_in_default_viewer
 
 
 def test_open_path_in_default_viewer_times_out(

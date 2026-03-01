@@ -7,17 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from chapter_splitter.core.errors import IoError, ValidationError
-from chapter_splitter.core.models import ChapterDefinition
-from chapter_splitter.core.runtime import CancellationToken
-from chapter_splitter.io.chapters import (
+from chapter_splitter.core import CancellationToken, ChapterDefinition, IoError, ValidationError
+from chapter_splitter.io import (
     ChapterFileSessionMetadata,
     load_chapter_file,
     load_chapter_file_with_metadata,
     write_chapter_file,
 )
-from chapter_splitter.pdf.detection.report import ChapterDetectionReport
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.pdf.detection import ChapterDetectionReport
+from chapter_splitter.utils import Deadline
 
 
 def test_load_chapter_file_requires_existing_path(tmp_path: Path) -> None:

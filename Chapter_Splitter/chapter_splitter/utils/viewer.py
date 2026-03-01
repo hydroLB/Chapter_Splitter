@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 import threading
 import webbrowser
@@ -37,7 +37,7 @@ def _open_path_native(path: Path, location: str) -> bool:
     """
     if sys.platform == "win32":
         # startfile uses ShellExecute and is the most native option on Windows.
-        os.startfile(str(path))  # type: ignore[attr-defined]
+        os.startfile(str(path))  # type: ignore[attr-defined]  # nosec B606
         return True
 
     if sys.platform == "darwin":
@@ -46,7 +46,7 @@ def _open_path_native(path: Path, location: str) -> bool:
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-        )
+        )  # nosec B603 B607
         return True
 
     opener = which("xdg-open")
@@ -56,7 +56,7 @@ def _open_path_native(path: Path, location: str) -> bool:
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-        )
+        )  # nosec B603
         return True
 
     gio = which("gio")
@@ -66,7 +66,7 @@ def _open_path_native(path: Path, location: str) -> bool:
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-        )
+        )  # nosec B603
         return True
 
     # Fall back to webbrowser when no native opener is available.

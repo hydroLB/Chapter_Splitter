@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from chapter_splitter.core.errors import ValidationError
-from chapter_splitter.core.models import ChapterDefinition
-from chapter_splitter.core.validation import validate_chapters, validate_page_range
+from chapter_splitter.core import (
+    ChapterDefinition,
+    ValidationError,
+    validate_chapters,
+    validate_page_range,
+)
 
 
 def test_validate_page_range_accepts_valid_range() -> None:

@@ -6,9 +6,8 @@ from typing import cast
 
 import pytest
 
-from chapter_splitter.core.errors import PdfProcessingError
-from chapter_splitter.pdf.io.dependencies import PdfReader
-from chapter_splitter.pdf.io.labels import extract_page_labels, infer_page_offset_from_labels
+from chapter_splitter.core import PdfProcessingError
+from chapter_splitter.pdf.io import PdfReader, extract_page_labels, infer_page_offset_from_labels
 
 
 class _ReaderWithLabels:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from chapter_splitter.core.errors import ValidationError
-from chapter_splitter.utils.filenames import safe_filename
+from chapter_splitter.core import ValidationError
+from chapter_splitter.utils import safe_filename
 
 
 def test_safe_filename_sanitizes_invalid_chars() -> None:

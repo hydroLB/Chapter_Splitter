@@ -19,41 +19,11 @@ Why this exists:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from PySide6 import QtCore, QtWidgets
 
 from ....core.errors import UiError, format_error_message
 from ....core.models import ChapterDefinition
-
-
-@dataclass(frozen=True, slots=True)
-class ChapterRowWidgets:
-    """Per-row editor widget references.
-
-    Summary:
-        Keep references for efficient row updates and extraction.
-    Inputs:
-        - title: Title editor.
-        - start: Start page editor.
-        - end: End page editor.
-        - remove: Remove button.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        None.
-    Ties to other methods:
-        Managed by ChaptersTableWidget.
-    Why this exists:
-        QTableWidget does not provide a typed editor registry; we need one.
-    """
-
-    title: QtWidgets.QLineEdit
-    start: QtWidgets.QSpinBox
-    end: QtWidgets.QSpinBox
-    remove: QtWidgets.QToolButton
+from .chapter_models import ChapterRowWidgets
 
 
 class ChaptersTableWidget(QtWidgets.QWidget):
@@ -102,10 +72,14 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         self._pulse_active_row: int | None = None
         self._pulse_on = False
         self._pulse_ticks_left = 0
+        self._compact_mode = False
 
         self._table = QtWidgets.QTableWidget(0, 4, self)
         self._table.setHorizontalHeaderLabels(["Chapter", "Start", "End", ""])
         self._table.verticalHeader().setVisible(False)
+        scrollbar_as_needed = int(getattr(QtCore.Qt, "ScrollBarAsNeeded", 0))
+        self._table.setHorizontalScrollBarPolicy(scrollbar_as_needed)
+        self._table.setVerticalScrollBarPolicy(scrollbar_as_needed)
         self._table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self._table.setAlternatingRowColors(True)
@@ -118,6 +92,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         header_view.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Fixed)
         header_view.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Fixed)
         header_view.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self._apply_row_and_header_metrics()
         spin_width = self._compute_page_spin_width()
         # Add a little column padding so the spinbox does not touch the cell edges.
         self._table.setColumnWidth(1, int(spin_width + 16))
@@ -151,6 +126,66 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             Some Qt APIs require access to the native widget rather than a wrapper.
         """
         return self._table
+
+    def set_compact_mode(self, compact: bool) -> None:
+        """Apply compact row and header sizing.
+
+        Summary:
+            Reduce row and header heights in constrained layouts.
+        Inputs:
+            - compact: True for compact mode, otherwise False.
+        Outputs:
+            - None.
+        Side effects:
+            Updates table header height, row heights, and editor control heights.
+        Error handling:
+            Best-effort only; ignores per-widget sizing failures.
+        Ties to other methods:
+            Called by MainWindow density tuning.
+        Why this exists:
+            Smaller windows need tighter table density to preserve visible rows.
+        """
+        self._compact_mode = bool(compact)
+        self._apply_row_and_header_metrics()
+
+    def _apply_row_and_header_metrics(self) -> None:
+        """Apply table header and row geometry for current density.
+
+        Summary:
+            Keep header typography and row heights synchronized to prevent clipped headings.
+        Inputs:
+            - None.
+        Outputs:
+            - None.
+        Side effects:
+            Mutates header size, default row height, and editor minimum heights.
+        Error handling:
+            Best-effort only; no-ops when metrics cannot be applied.
+        Ties to other methods:
+            Called by __init__ and set_compact_mode.
+        Why this exists:
+            Header text clipping occurs when font and section heights drift apart.
+        """
+        header_height = 28 if self._compact_mode else 32
+        row_height = 34 if self._compact_mode else 38
+        try:
+            header_view = self._table.horizontalHeader()
+            header_view.setMinimumHeight(header_height)
+            header_view.setDefaultSectionSize(header_height)
+            font = header_view.font()
+            font.setPointSize(11 if self._compact_mode else 12)
+            header_view.setFont(font)
+            self._table.verticalHeader().setDefaultSectionSize(row_height)
+            for row_index in range(self._table.rowCount()):
+                self._table.setRowHeight(row_index, row_height)
+            control_height = 28 if self._compact_mode else 32
+            for widgets in self._rows:
+                widgets.title.setMinimumHeight(control_height)
+                widgets.start.setMinimumHeight(control_height)
+                widgets.end.setMinimumHeight(control_height)
+                widgets.remove.setMinimumHeight(control_height)
+        except Exception:
+            return
 
     def _compute_page_spin_width(self) -> int:
         """Compute a compact width for page spinboxes.
@@ -534,23 +569,28 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         title_edit.setText(title)
         title_edit.setClearButtonEnabled(True)
         title_edit.setPlaceholderText("Chapter title")
+        title_edit.setMinimumHeight(28 if self._compact_mode else 32)
 
         start_spin = QtWidgets.QSpinBox(self._table)
         start_spin.setRange(1, self._total_pages)
         start_spin.setValue(max(1, min(int(start_page), self._total_pages)))
         start_spin.setFixedWidth(self._compute_page_spin_width())
+        start_spin.setMinimumHeight(28 if self._compact_mode else 32)
         start_spin.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         end_spin = QtWidgets.QSpinBox(self._table)
         end_spin.setRange(1, self._total_pages)
         end_spin.setValue(max(1, min(int(end_page), self._total_pages)))
         end_spin.setFixedWidth(self._compute_page_spin_width())
+        end_spin.setMinimumHeight(28 if self._compact_mode else 32)
         end_spin.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         remove_btn = QtWidgets.QToolButton(self._table)
         remove_btn.setText("✕")
         remove_btn.setAutoRaise(True)
+        remove_btn.setProperty("button_role", "toolbar")
         remove_btn.setProperty("destructive", "true")
+        remove_btn.setMinimumHeight(28 if self._compact_mode else 32)
         remove_btn.clicked.connect(self._on_remove_clicked)
         title_edit.textChanged.connect(self._on_editor_changed)
         start_spin.valueChanged.connect(self._on_editor_changed)
@@ -568,6 +608,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             remove=remove_btn,
         )
         self._rows.insert(int(row_index), row_widgets)
+        self._table.setRowHeight(int(row_index), 34 if self._compact_mode else 38)
         self._table.selectRow(int(row_index))
         self._apply_active_row_visuals(int(row_index))
         self._start_row_pulse(int(row_index))
@@ -700,8 +741,10 @@ class ChaptersTableWidget(QtWidgets.QWidget):
                 try:
                     widget.style().unpolish(widget)
                     widget.style().polish(widget)
-                except Exception:
-                    continue
+                except RuntimeError:
+                    self._pulse_timer.stop()
+                    self._pulse_active_row = None
+                    self._pulse_on = False
 
     def _apply_active_row_visuals(self, row_index: int) -> None:
         """Apply visual emphasis to the active row editors.

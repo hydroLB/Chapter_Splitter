@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from chapter_splitter.config.loader import load_settings
-from chapter_splitter.core.runtime import CancellationToken
-from chapter_splitter.pdf.detection.outlines import detect_chapters_from_outlines
-from chapter_splitter.utils.timing import Deadline
+from chapter_splitter.core import CancellationToken
+from chapter_splitter.pdf.detection import detect_chapters_from_outlines
+from chapter_splitter.utils import Deadline
 
 
 def test_detect_chapters_from_outlines(outlined_pdf: Path) -> None:

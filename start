@@ -5,60 +5,202 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$ROOT_DIR/.venv"
 PYTHON_BIN="$VENV_DIR/bin/python"
 REQUIREMENTS_LOCK="$ROOT_DIR/requirements.lock"
+PYPROJECT_TOML="$ROOT_DIR/pyproject.toml"
 
 MODE="${CHAPTER_SPLITTER_MODE:-gui}"
 CONFIG_PATH="${CHAPTER_SPLITTER_CONFIG_PATH:-}"
 PDF_PATH="${PDF_PATH:-}"
 CHAPTERS_PATH="${CHAPTERS_PATH:-}"
-
-if [[ ! -x "$PYTHON_BIN" ]]; then
-  echo "start: missing venv python at $PYTHON_BIN" >&2
-  echo "start: create it with: python3 -m venv .venv" >&2
-  exit 1
+LIVE_PYTHONPATH="$ROOT_DIR/Chapter_Splitter"
+if [[ -n "${PYTHONPATH:-}" ]]; then
+  LIVE_PYTHONPATH="$LIVE_PYTHONPATH:$PYTHONPATH"
 fi
 
-if [[ ! -f "$REQUIREMENTS_LOCK" ]]; then
-  echo "start: missing requirements lockfile at $REQUIREMENTS_LOCK" >&2
-  exit 1
-fi
+log() {
+  echo "start: $*"
+}
 
-REQUIRED_PYPDF_LINE="$(grep -E '^pypdf==' "$REQUIREMENTS_LOCK" | head -n 1 || true)"
-if [[ -z "$REQUIRED_PYPDF_LINE" ]]; then
-  echo "start: requirements.lock must contain a pinned pypdf version (expected a line like pypdf==X.Y.Z)" >&2
+die() {
+  echo "start: $*" >&2
   exit 1
-fi
-REQUIRED_PYPDF_VERSION="${REQUIRED_PYPDF_LINE#pypdf==}"
+}
 
-if ! CHAPTER_SPLITTER_REQUIRED_PYPDF_VERSION="$REQUIRED_PYPDF_VERSION" \
-  "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
+find_bootstrap_python() {
+  if command -v python3.11 >/dev/null 2>&1; then
+    command -v python3.11
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  return 1
+}
+
+ensure_venv() {
+  if [[ -x "$PYTHON_BIN" ]]; then
+    return 0
+  fi
+
+  local bootstrap_python
+  if ! bootstrap_python="$(find_bootstrap_python)"; then
+    die "could not find python3.11/python3/python on PATH to create .venv"
+  fi
+
+  log "creating virtual environment at $VENV_DIR"
+  "$bootstrap_python" -m venv "$VENV_DIR"
+}
+
+ensure_python_version() {
+  if ! "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
+import sys
+sys.exit(0 if sys.version_info >= (3, 11) else 1)
+PY
+  then
+    die "python in .venv must be >= 3.11"
+  fi
+}
+
+ensure_requirements_file() {
+  if [[ ! -f "$REQUIREMENTS_LOCK" ]]; then
+    die "missing requirements lockfile at $REQUIREMENTS_LOCK"
+  fi
+}
+
+ensure_pyproject_file() {
+  if [[ ! -f "$PYPROJECT_TOML" ]]; then
+    die "missing pyproject.toml at $PYPROJECT_TOML"
+  fi
+}
+
+read_pinned_runtime_dep() {
+  local dependency_name="$1"
+  local line
+  line="$(grep -E "^${dependency_name}==" "$REQUIREMENTS_LOCK" | head -n 1 || true)"
+  if [[ -z "$line" ]]; then
+    die "requirements.lock must contain a pinned ${dependency_name} version (expected ${dependency_name}==X.Y.Z)"
+  fi
+  echo "${line#${dependency_name}==}"
+}
+
+read_pinned_optional_dep() {
+  local dependency_name="$1"
+  CHAPTER_SPLITTER_DEPENDENCY_NAME="$dependency_name" CHAPTER_SPLITTER_PYPROJECT_PATH="$PYPROJECT_TOML" \
+    "$PYTHON_BIN" - <<'PY'
+import os
+import pathlib
+import sys
+import tomllib
+
+dependency_name = os.environ["CHAPTER_SPLITTER_DEPENDENCY_NAME"]
+pyproject_path = pathlib.Path(os.environ["CHAPTER_SPLITTER_PYPROJECT_PATH"])
+data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+optional = data.get("project", {}).get("optional-dependencies", {})
+for group in optional.values():
+    for dep in group:
+        if dep.startswith(f"{dependency_name}=="):
+            print(dep.split("==", 1)[1])
+            sys.exit(0)
+sys.exit(1)
+PY
+}
+
+module_version_matches() {
+  local module_name="$1"
+  local required_version="$2"
+  CHAPTER_SPLITTER_MODULE_NAME="$module_name" CHAPTER_SPLITTER_REQUIRED_VERSION="$required_version" \
+    "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
+import importlib
 import os
 import sys
 
-required = os.environ.get("CHAPTER_SPLITTER_REQUIRED_PYPDF_VERSION")
-if not required:
-    raise RuntimeError("Missing CHAPTER_SPLITTER_REQUIRED_PYPDF_VERSION")
-
+module_name = os.environ["CHAPTER_SPLITTER_MODULE_NAME"]
+required = os.environ["CHAPTER_SPLITTER_REQUIRED_VERSION"]
 try:
-    import pypdf  # type: ignore[import-not-found]
+    module = importlib.import_module(module_name)
 except Exception:
     sys.exit(1)
-
-sys.exit(0 if getattr(pypdf, "__version__", "") == required else 1)
+actual = getattr(module, "__version__", "")
+sys.exit(0 if actual == required else 1)
 PY
-then
-  echo "start: installing runtime dependencies from requirements.lock" >&2
+}
+
+ensure_runtime_dependencies() {
+  local required_pypdf_version
+  required_pypdf_version="$(read_pinned_runtime_dep "pypdf")"
+  if ! module_version_matches "pypdf" "$required_pypdf_version"; then
+    log "pypdf version mismatch detected, syncing requirements.lock"
+  fi
+  log "checking/installing runtime dependencies from requirements.lock"
   "$PYTHON_BIN" -m pip install -r "$REQUIREMENTS_LOCK"
-fi
+}
+
+ensure_gui_dependencies() {
+  local required_pyside6_version
+  if ! required_pyside6_version="$(read_pinned_optional_dep "PySide6")"; then
+    die "pyproject.toml must contain a pinned PySide6 version in project.optional-dependencies"
+  fi
+  if module_version_matches "PySide6" "$required_pyside6_version"; then
+    return 0
+  fi
+  log "installing GUI dependency PySide6==$required_pyside6_version"
+  "$PYTHON_BIN" -m pip install "PySide6==$required_pyside6_version"
+}
+
+ensure_live_mode_resolution() {
+  local module_file
+  if ! module_file="$(
+    PYTHONPATH="$LIVE_PYTHONPATH" "$PYTHON_BIN" - <<'PY'
+import pathlib
+import sys
+
+try:
+    import chapter_splitter
+except Exception as exc:
+    print(f"failed to import chapter_splitter in live mode: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+print(pathlib.Path(chapter_splitter.__file__).resolve())
+PY
+  )"; then
+    die "unable to import chapter_splitter from live source path"
+  fi
+
+  case "$module_file" in
+    "$ROOT_DIR"/Chapter_Splitter/chapter_splitter/*) ;;
+    *)
+      die "live mode check failed; chapter_splitter resolved to $module_file (expected under $ROOT_DIR/Chapter_Splitter/chapter_splitter)"
+      ;;
+  esac
+}
+
+run_live_cli() {
+  ensure_live_mode_resolution
+  PYTHONPATH="$LIVE_PYTHONPATH" "$PYTHON_BIN" -m chapter_splitter "$@"
+}
+
+ensure_venv
+ensure_python_version
+ensure_requirements_file
+ensure_pyproject_file
+ensure_runtime_dependencies
 
 if [[ -n "$CONFIG_PATH" && ! -f "$CONFIG_PATH" ]]; then
-  echo "start: CHAPTER_SPLITTER_CONFIG_PATH points to a missing file: $CONFIG_PATH" >&2
-  exit 1
+  die "CHAPTER_SPLITTER_CONFIG_PATH points to a missing file: $CONFIG_PATH"
 fi
 
 # Run without requiring the console-script to be installed into the venv.
 if [[ "$MODE" == "gui" ]]; then
-  PYTHONPATH="$ROOT_DIR/Chapter_Splitter${PYTHONPATH:+:$PYTHONPATH}" \
-    "$PYTHON_BIN" -m chapter_splitter ${CONFIG_PATH:+--config "$CONFIG_PATH"} gui
+  ensure_gui_dependencies
+  if [[ -n "$CONFIG_PATH" ]]; then
+    run_live_cli --config "$CONFIG_PATH" gui
+  else
+    run_live_cli gui
+  fi
   exit 0
 fi
 
@@ -77,8 +219,11 @@ if [[ "$MODE" == "split" ]]; then
     exit 2
   fi
 
-  PYTHONPATH="$ROOT_DIR/Chapter_Splitter${PYTHONPATH:+:$PYTHONPATH}" \
-    "$PYTHON_BIN" -m chapter_splitter ${CONFIG_PATH:+--config "$CONFIG_PATH"} split --pdf "$PDF_PATH" --chapters "$CHAPTERS_PATH"
+  if [[ -n "$CONFIG_PATH" ]]; then
+    run_live_cli --config "$CONFIG_PATH" split --pdf "$PDF_PATH" --chapters "$CHAPTERS_PATH"
+  else
+    run_live_cli split --pdf "$PDF_PATH" --chapters "$CHAPTERS_PATH"
+  fi
   exit 0
 fi
 

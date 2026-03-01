@@ -19,37 +19,13 @@ Why this exists:
 from __future__ import annotations
 
 from contextlib import suppress
-from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
 
-
-@dataclass(frozen=True, slots=True)
-class PdfViewerState:
-    """Small immutable snapshot of viewer state.
-
-    Summary:
-        Carry the current page and page count for wiring to toolbars.
-    Inputs:
-        - page_index: Current 0-based page index.
-        - page_count: Total number of pages in the loaded document.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        None.
-    Ties to other methods:
-        Emitted by PdfViewerWidget when state changes.
-    Why this exists:
-        State updates should be structured to avoid ad-hoc tuple unpacking.
-    """
-
-    page_index: int
-    page_count: int
+from .pdf_state import PdfViewerState
 
 
 class PdfViewerWidget(QtWidgets.QWidget):
@@ -303,26 +279,37 @@ class PdfViewerWidget(QtWidgets.QWidget):
         toolbar.setSpacing(8)
 
         self._prev_btn = QtWidgets.QToolButton(self)
+        self._prev_btn.setProperty("button_role", "toolbar")
         self._prev_btn.setText("◀")
         self._next_btn = QtWidgets.QToolButton(self)
+        self._next_btn.setProperty("button_role", "toolbar")
         self._next_btn.setText("▶")
 
         self._page_label = QtWidgets.QLabel("Page", self)
+        self._page_label.setProperty("text_role", "form_label")
         self._page_edit = QtWidgets.QLineEdit(self)
-        self._page_edit.setFixedWidth(44)
+        self._page_edit.setFixedWidth(64)
+        self._page_edit.setMinimumHeight(34)
         self._page_total = QtWidgets.QLabel("/ 0", self)
+        self._page_total.setProperty("text_role", "form_label")
         self._go_btn = QtWidgets.QPushButton("Go", self)
-        self._go_btn.setFixedWidth(56)
+        self._go_btn.setProperty("button_role", "default")
+        self._go_btn.setFixedWidth(62)
+        self._go_btn.setMinimumHeight(34)
 
         self._fit_combo = QtWidgets.QComboBox(self)
         self._fit_combo.addItems(["Fit Width", "Fit Page", "Manual"])
         self._fit_combo.setCurrentText("Fit Width")
+        self._fit_combo.setMinimumHeight(32)
 
         self._zoom_out = QtWidgets.QToolButton(self)
+        self._zoom_out.setProperty("button_role", "toolbar")
         self._zoom_out.setText("−")
         self._zoom_in = QtWidgets.QToolButton(self)
+        self._zoom_in.setProperty("button_role", "toolbar")
         self._zoom_in.setText("+")
         self._zoom_pct = QtWidgets.QToolButton(self)
+        self._zoom_pct.setProperty("button_role", "toolbar")
         self._zoom_pct.setText("100%")
         self._zoom_pct.setAutoRaise(True)
         self._zoom_pct.setToolTip("Reset zoom to 100%")
@@ -345,6 +332,9 @@ class PdfViewerWidget(QtWidgets.QWidget):
 
         self._view.setPageMode(QPdfView.PageMode.MultiPage)
         self._view.setDocumentMargins(QtCore.QMargins(12, 12, 12, 12))
+        scrollbar_as_needed = int(getattr(QtCore.Qt, "ScrollBarAsNeeded", 0))
+        self._view.setHorizontalScrollBarPolicy(scrollbar_as_needed)
+        self._view.setVerticalScrollBarPolicy(scrollbar_as_needed)
         self.set_fit_width()
         self._configure_viewport_for_resizes()
         layout.addWidget(self._view, 1)

@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from chapter_splitter.config.schema import AppConfig, LoggingConfig
-from chapter_splitter.core.errors import ConfigurationError
-from chapter_splitter.observability.logging import (
+from chapter_splitter.core import ConfigurationError
+from chapter_splitter.observability import (
     CorrelationIdFilter,
     RedactionPolicy,
     StructuredFormatter,
@@ -29,6 +29,15 @@ class _CaptureHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         self.records.append(record)
+
+
+class _CaptureFormattedHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.messages.append(self.format(record))
 
 
 def _app_config() -> AppConfig:
@@ -158,6 +167,52 @@ def test_structured_formatter_emits_expected_fields(tmp_path: Path) -> None:
     assert payload["message"] == "hello [REDACTED]"
     assert payload["password"] == "[REDACTED]"
     assert payload["user"] == "alice"
+
+
+def test_structured_log_contract_includes_schema_and_correlation_id(tmp_path: Path) -> None:
+    """Verify emitted structured logs contain required schema keys and correlation IDs.
+
+    Purpose:
+        Lock ingestion-facing structured log contract to deterministic required keys.
+    Ties To:
+        Covers StructuredFormatter, CorrelationIdFilter, and log_event integration.
+    Inputs:
+        - tmp_path: Pytest temporary directory.
+    Outputs:
+        - None.
+    Side Effects:
+        Emits a single in-memory log message through a configured handler.
+    Raises:
+        - None.
+    """
+    logger = logging.getLogger("tests.unit.test_observability_logging.contract")
+    logger.handlers = []
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+
+    handler = _CaptureFormattedHandler()
+    handler.setFormatter(StructuredFormatter(_app_config(), RedactionPolicy(keys=(), values=())))
+    handler.addFilter(CorrelationIdFilter())
+    logger.addHandler(handler)
+
+    set_correlation_id("cid-contract", "tests.unit.test_observability_logging")
+    log_event(logger, logging.INFO, "contract_event", "contract_message", {"custom": "value"})
+
+    assert len(handler.messages) == 1
+    payload = json.loads(handler.messages[0])
+    required_keys = {
+        "timestamp",
+        "level",
+        "logger",
+        "message",
+        "correlation_id",
+        "environment",
+        "event",
+    }
+    assert required_keys.issubset(payload.keys())
+    assert payload["correlation_id"] == "cid-contract"
+    assert payload["event"] == "contract_event"
+    assert payload["custom"] == "value"
 
 
 def test_configure_logging_validates_formatter_and_level(tmp_path: Path) -> None:

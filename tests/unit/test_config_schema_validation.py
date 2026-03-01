@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -12,12 +13,13 @@ from chapter_splitter.config.schema import (
     DetectionConfig,
     IOConfig,
     LoggingConfig,
+    OutputCollisionPolicy,
     PerformanceConfig,
     RetryConfig,
     UIConfig,
     ValidationConfig,
 )
-from chapter_splitter.core.errors import ConfigurationError
+from chapter_splitter.core import ConfigurationError
 
 
 def _valid_app() -> AppConfig:
@@ -144,6 +146,7 @@ def _valid_ui() -> UIConfig:
         enable_keyboard_shortcuts=True,
         show_status_bar=True,
         status_hint="hint",
+        color_mode="auto",
         enable_pdf_preview=False,
         pdf_preview_zoom=1.0,
         pdf_preview_fit_mode="none",
@@ -304,3 +307,289 @@ def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
         PerformanceConfig(benchmark_iterations=0, benchmark_budget_seconds=1.0).validate(
             "tests.unit.test_config_schema_validation"
         )
+
+
+def test_ui_config_validation_catches_preview_and_prompt_invariants() -> None:
+    """Verify UIConfig validates prompt and PDF preview-specific invariants.
+
+    Purpose:
+        Cover remaining UI validation branches for prompt/preview constraints.
+    Ties To:
+        Covers chapter_splitter.config.schema.sections.ui.UIConfig.validate.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+
+    def assert_invalid(mutator: Callable[[UIConfig], None]) -> None:
+        cfg = _valid_ui()
+        mutator(cfg)
+        with pytest.raises(ConfigurationError):
+            cfg.validate("tests.unit.test_config_schema_validation")
+
+    assert_invalid(lambda c: setattr(c, "open_pdf_button_label", ""))
+    assert_invalid(lambda c: setattr(c, "close_button_label", ""))
+    assert_invalid(lambda c: setattr(c, "column_widths", (0,)))
+    assert_invalid(lambda c: setattr(c, "grid_header_labels", ("Title", "Start")))
+    assert_invalid(lambda c: setattr(c, "confirm_auto_detect_overwrite_title", ""))
+    assert_invalid(lambda c: setattr(c, "confirm_auto_detect_overwrite_message", ""))
+    assert_invalid(lambda c: setattr(c, "open_output_dir_prompt_title", ""))
+    assert_invalid(lambda c: setattr(c, "open_output_dir_prompt_message_template", ""))
+    assert_invalid(lambda c: setattr(c, "status_hint", ""))
+    assert_invalid(lambda c: setattr(c, "color_mode", "bad"))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_zoom", 0.0))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_fit_mode", "bad"))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_fit_padding_px", -1))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_supersample", 0))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_min_zoom", 0.0))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_min_zoom", 5.0))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_zoom_step", 0.0))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_cache_entries", -1))
+    assert_invalid(lambda c: setattr(c, "pdf_preview_render_timeout_seconds", 0.0))
+    assert_invalid(lambda c: setattr(c, "chapter_review_thumbnail_width", 79))
+    assert_invalid(lambda c: setattr(c, "chapter_review_columns", 0))
+
+
+def test_ui_config_allows_optional_prompt_fields_when_flags_are_disabled() -> None:
+    """Verify optional prompt fields can be empty when their feature flags are disabled.
+
+    Purpose:
+        Cover non-error branches where optional prompt fields are intentionally skipped.
+    Ties To:
+        Covers conditional branches in chapter_splitter.config.schema.sections.ui.UIConfig.validate.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    cfg = _valid_ui()
+    cfg.confirm_auto_detect_overwrite = False
+    cfg.confirm_auto_detect_overwrite_title = ""
+    cfg.confirm_auto_detect_overwrite_message = ""
+    cfg.prompt_open_output_dir_after_export = False
+    cfg.open_output_dir_prompt_title = ""
+    cfg.open_output_dir_prompt_message_template = ""
+    cfg.show_status_bar = False
+    cfg.status_hint = ""
+    cfg.validate("tests.unit.test_config_schema_validation")
+
+
+def test_detection_config_validation_catches_remaining_error_branches() -> None:
+    """Verify DetectionConfig validation rejects malformed detection settings.
+
+    Purpose:
+        Cover remaining detection validation branches including regex parsing failures.
+    Ties To:
+        Covers chapter_splitter.config.schema.sections.detection.DetectionConfig.validate.
+    Inputs:
+        - None.
+    Outputs:
+        - None.
+    Side Effects:
+        Compiles regex patterns during validation.
+    Raises:
+        - None.
+    """
+
+    def assert_invalid(mutator: Callable[[DetectionConfig], None]) -> None:
+        cfg = _valid_detection()
+        mutator(cfg)
+        with pytest.raises(ConfigurationError):
+            cfg.validate("tests.unit.test_config_schema_validation")
+
+    assert_invalid(lambda c: setattr(c, "toc_scan_max_pages", 0))
+    assert_invalid(lambda c: setattr(c, "toc_entry_regexes", ()))
+    assert_invalid(lambda c: setattr(c, "toc_min_entries", 0))
+    assert_invalid(lambda c: setattr(c, "toc_max_entries", 1))
+    assert_invalid(lambda c: setattr(c, "toc_entry_regexes", ("(",)))
+    assert_invalid(lambda c: setattr(c, "toc_entry_regexes", (r"^(?P<title>.+)$",)))
+    assert_invalid(lambda c: setattr(c, "toc_ignore_title_regexes", ("(",)))
+    assert_invalid(lambda c: setattr(c, "outline_min_depth", -1))
+    assert_invalid(lambda c: setattr(c, "outline_merge_tiny_max_pages", -1))
+    assert_invalid(lambda c: setattr(c, "outline_merge_tiny_title_joiner", ""))
+    assert_invalid(lambda c: setattr(c, "outline_ignore_title_regexes", ("(",)))
+
+
+def test_other_section_validators_cover_remaining_branches(tmp_path: Path) -> None:
+    """Verify section validators reject all remaining invalid parameter branches.
+
+    Purpose:
+        Raise coverage for App/IO/Retry/Performance validators without altering behavior.
+    Ties To:
+        Covers validate methods in app/io/retry/performance config sections.
+    Inputs:
+        - tmp_path: Pytest temporary directory.
+    Outputs:
+        - None.
+    Side Effects:
+        None.
+    Raises:
+        - None.
+    """
+    with pytest.raises(ConfigurationError):
+        AppConfig(title="ok", environment="", correlation_id_prefix="cid").validate(
+            "tests.unit.test_config_schema_validation"
+        )
+    with pytest.raises(ConfigurationError):
+        AppConfig(title="ok", environment="test", correlation_id_prefix="").validate(
+            "tests.unit.test_config_schema_validation"
+        )
+
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=0.0,
+            pdf_write_timeout_seconds=1.0,
+            operation_timeout_seconds=1.0,
+            output_dir_suffix="_out",
+            output_collision_policy="error",
+            output_collision_max_suffix=10,
+            fsync_writes=False,
+            page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=1.0,
+            pdf_write_timeout_seconds=0.0,
+            operation_timeout_seconds=1.0,
+            output_dir_suffix="_out",
+            output_collision_policy="error",
+            output_collision_max_suffix=10,
+            fsync_writes=False,
+            page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=1.0,
+            pdf_write_timeout_seconds=1.0,
+            operation_timeout_seconds=0.0,
+            output_dir_suffix="_out",
+            output_collision_policy="error",
+            output_collision_max_suffix=10,
+            fsync_writes=False,
+            page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=1.0,
+            pdf_write_timeout_seconds=1.0,
+            operation_timeout_seconds=1.0,
+            output_dir_suffix="",
+            output_collision_policy="error",
+            output_collision_max_suffix=10,
+            fsync_writes=False,
+            page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=1.0,
+            pdf_write_timeout_seconds=1.0,
+            operation_timeout_seconds=1.0,
+            output_dir_suffix="_out",
+            output_collision_policy=cast(OutputCollisionPolicy, "bad"),
+            output_collision_max_suffix=10,
+            fsync_writes=False,
+            page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=1.0,
+            pdf_write_timeout_seconds=1.0,
+            operation_timeout_seconds=1.0,
+            output_dir_suffix="_out",
+            output_collision_policy="error",
+            output_collision_max_suffix=1,
+            fsync_writes=False,
+            page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=1.0,
+            pdf_write_timeout_seconds=1.0,
+            operation_timeout_seconds=1.0,
+            output_dir_suffix="_out",
+            output_collision_policy="error",
+            output_collision_max_suffix=10,
+            fsync_writes=False,
+            page_offset=-1,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=3,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        _valid_io().__class__(
+            open_viewer=False,
+            viewer_timeout_seconds=1.0,
+            pdf_read_timeout_seconds=1.0,
+            pdf_write_timeout_seconds=1.0,
+            operation_timeout_seconds=1.0,
+            output_dir_suffix="_out",
+            output_collision_policy="error",
+            output_collision_max_suffix=10,
+            fsync_writes=False,
+            page_offset=0,
+            infer_page_offset_from_labels=False,
+            infer_page_offset_min_sequential_numeric_labels=0,
+        ).validate("tests.unit.test_config_schema_validation")
+
+    with pytest.raises(ConfigurationError):
+        RetryConfig(
+            max_attempts=1,
+            initial_delay_seconds=-0.1,
+            max_delay_seconds=1.0,
+            jitter_ratio=0.0,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        RetryConfig(
+            max_attempts=1,
+            initial_delay_seconds=1.0,
+            max_delay_seconds=0.5,
+            jitter_ratio=0.0,
+        ).validate("tests.unit.test_config_schema_validation")
+    with pytest.raises(ConfigurationError):
+        RetryConfig(
+            max_attempts=1,
+            initial_delay_seconds=0.0,
+            max_delay_seconds=1.0,
+            jitter_ratio=1.5,
+        ).validate("tests.unit.test_config_schema_validation")
+
+    with pytest.raises(ConfigurationError):
+        PerformanceConfig(benchmark_iterations=1, benchmark_budget_seconds=0.0).validate(
+            "tests.unit.test_config_schema_validation"
+        )
+
+    _valid_logging(tmp_path).validate("tests.unit.test_config_schema_validation")
