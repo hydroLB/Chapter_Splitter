@@ -14,6 +14,9 @@ Install deterministic dependencies and local tooling:
 make install-dev
 ```
 
+`make install-dev` also installs the repository `pre-commit` and `pre-push` hooks so hygiene,
+tests, and secret scanning stay attached to normal Git workflows.
+
 Run the desktop workflow:
 
 ```bash
@@ -41,6 +44,7 @@ If you prefer zero setup commands, use:
 | `make lint` | Run formatter check and linter |
 | `make typecheck` | Run strict `mypy` checks |
 | `make boundaries` | Enforce layered import dependency direction |
+| `make repo-hygiene` | Block tracked local artifacts, secret-bearing files, and missing bootstrap files |
 | `make test` | Run tests with coverage gate |
 | `make security` | Run Bandit and dependency audit |
 | `make release-check` | Enforce release/version/changelog policy checks |

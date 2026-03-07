@@ -19,20 +19,20 @@ make install-dev
 Install local hooks:
 
 ```bash
-.venv311/bin/pre-commit install
+make install-dev
 ```
 
-If `.venv311` is not present in your environment, use the active virtual environment path that
-contains `pre-commit`.
+`make install-dev` installs both `pre-commit` and `pre-push` hooks so local changes are checked
+before they are committed or pushed.
 
-Optional secret scanning hook (manual stage):
+Manual secret scan:
 
 ```bash
-.venv311/bin/pre-commit run gitleaks --all-files
+.venv311/bin/pre-commit run --hook-stage manual gitleaks --all-files
 ```
 
-The `gitleaks` hook is configured with `stages: [manual]`, so it does not block normal commits
-unless you run it explicitly.
+The `gitleaks` hook also runs on `pre-push`, so pushes are blocked if a likely secret is staged in
+history or the working branch.
 
 ## Development Workflow
 
@@ -48,9 +48,10 @@ The same checks run locally and in CI:
 - `make lint`
 - `make typecheck`
 - `make boundaries`
+- `make repo-hygiene`
 - `make test`
 - `make security`
-- `pre-commit run gitleaks --all-files` (recommended for security-sensitive changes)
+- `pre-commit run --hook-stage manual gitleaks --all-files`
 
 Use `make check` to run all gates in one command.
 

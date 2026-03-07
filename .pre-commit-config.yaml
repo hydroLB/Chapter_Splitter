@@ -2,6 +2,10 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: check-case-conflict
+      - id: check-merge-conflict
       - id: check-yaml
       - id: check-toml
       - id: end-of-file-fixer
@@ -19,9 +23,14 @@ repos:
     hooks:
       - id: mypy
         args: ["--config-file=pyproject.toml"]
-        additional_dependencies: ["pypdf==6.6.2"]
+        additional_dependencies: ["pypdf==6.7.5"]
   - repo: local
     hooks:
+      - id: repo-hygiene
+        name: repo-hygiene
+        entry: python scripts/check_repo_hygiene.py
+        language: system
+        pass_filenames: false
       - id: pytest
         name: pytest
         entry: pytest -q
@@ -31,4 +40,4 @@ repos:
     rev: v8.24.2
     hooks:
       - id: gitleaks
-        stages: [manual]
+        stages: [manual, pre-push]
