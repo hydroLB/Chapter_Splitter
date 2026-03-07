@@ -10,17 +10,17 @@ from .errors import ValidationError, format_error_message
 class PageRange:
     """Inclusive zero based page range for a PDF.
 
-    Purpose:
+    Summary:
         Represent a validated, inclusive range of PDF page indices.
-    Ties To:
+    Ties to other methods:
         Created by ChapterDefinition and consumed by PDF splitting logic.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -30,18 +30,18 @@ class PageRange:
     def __init__(self, start_index: int, end_index: int) -> None:
         """Initialize an inclusive zero based page range.
 
-        Purpose:
+        Summary:
             Store zero based page indices for downstream PDF slicing.
-        Ties To:
+        Ties to other methods:
             Created by ChapterDefinition.to_page_range and consumed by split logic.
         Inputs:
             - start_index: First page index, zero based.
             - end_index: Last page index, zero based.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.start_index = start_index
@@ -50,17 +50,17 @@ class PageRange:
     def validate(self, location: str) -> None:
         """Validate the page range values.
 
-        Purpose:
+        Summary:
             Ensure the calculated PDF indices are valid before use.
-        Ties To:
+        Ties to other methods:
             Used by ChapterDefinition.to_page_range and the splitting pipeline.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ValidationError: When the range is invalid.
         """
         error_location = f"{__name__}.PageRange.validate"
@@ -80,17 +80,17 @@ class PageRange:
 class ChapterDefinition:
     """User facing chapter definition using one based page numbers.
 
-    Purpose:
+    Summary:
         Capture chapter titles and page boundaries from user input.
-    Ties To:
+    Ties to other methods:
         Used by UI, CLI parsing, validation, and chapter splitting.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -101,9 +101,9 @@ class ChapterDefinition:
     def __init__(self, title: str, start_page: int, end_page: int) -> None:
         """Initialize a chapter definition.
 
-        Purpose:
+        Summary:
             Capture a chapter title and its one based page boundaries.
-        Ties To:
+        Ties to other methods:
             Used by validation, UI grid extraction, and CLI parsing.
         Inputs:
             - title: Chapter label shown in filenames and logs.
@@ -111,9 +111,9 @@ class ChapterDefinition:
             - end_page: Last page number, one based.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.title = title
@@ -123,17 +123,17 @@ class ChapterDefinition:
     def validate(self, location: str) -> None:
         """Validate the chapter definition values.
 
-        Purpose:
+        Summary:
             Ensure chapter title and page boundaries are sane before processing.
-        Ties To:
+        Ties to other methods:
             Used by validation routines and split execution.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ValidationError: When title or page numbers are invalid.
         """
         error_location = f"{__name__}.ChapterDefinition.validate"
@@ -159,18 +159,18 @@ class ChapterDefinition:
     def to_page_range(self, page_offset: int, location: str) -> PageRange:
         """Convert to a zero based page range for PDF indexing.
 
-        Purpose:
+        Summary:
             Translate human page numbers into zero based PDF indices.
-        Ties To:
+        Ties to other methods:
             Consumed by the PDF splitter when iterating pages.
         Inputs:
             - page_offset: Offset used to align labeled pages to PDF indices.
             - location: Fully qualified module and method name.
         Outputs:
             - PageRange with inclusive zero based indices.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ValidationError: When the calculated range is invalid.
         """
         error_location = f"{__name__}.ChapterDefinition.to_page_range"
@@ -184,17 +184,17 @@ class ChapterDefinition:
 class ChapterOutput:
     """Result metadata for a single chapter export.
 
-    Purpose:
+    Summary:
         Bundle a chapter definition with the exported output path.
-    Ties To:
+    Ties to other methods:
         Returned by the splitter for UI and CLI output.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -204,18 +204,18 @@ class ChapterOutput:
     def __init__(self, chapter: ChapterDefinition, output_path: Path) -> None:
         """Initialize a chapter output record.
 
-        Purpose:
+        Summary:
             Bundle the chapter metadata with its exported file path.
-        Ties To:
+        Ties to other methods:
             Returned by the splitter to the UI and CLI layers.
         Inputs:
             - chapter: Chapter definition that was exported.
             - output_path: Path to the exported PDF file.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.chapter = chapter

@@ -32,18 +32,18 @@ class _FakeReader(OutlineReaderProtocol):
 def test_extract_outline_entries_prefers_deeper_items_when_top_level_is_ignored() -> None:
     """Verify ignored depth-0 titles allow falling back to deeper outline entries.
 
-    Purpose:
+    Summary:
         Ensure ignore patterns do not leave the user with an empty chapter list when useful
         entries exist at deeper depths.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.detection.outlines.extract_outline_entries depth selection.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = _FakeReader(
@@ -71,17 +71,17 @@ def test_extract_outline_entries_prefers_deeper_items_when_top_level_is_ignored(
 def test_extract_outline_entries_respects_min_depth() -> None:
     """Verify outline_min_depth selects the shallowest eligible depth.
 
-    Purpose:
+    Summary:
         Allow users to ignore high-level outline nodes such as "Part 1" when chapters live deeper.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.detection.outlines.extract_outline_entries min depth logic.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = _FakeReader(
@@ -109,17 +109,17 @@ def test_extract_outline_entries_respects_min_depth() -> None:
 def test_detect_chapters_from_outlines_reader_merges_tiny_ranges_forward() -> None:
     """Verify tiny ranges are merged into the next chapter when possible.
 
-    Purpose:
+    Summary:
         Reduce one-page outline noise that fragments the detected chapter list.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.detection.outlines.detect_chapters_from_outlines_reader merging.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = _FakeReader(outline=None)

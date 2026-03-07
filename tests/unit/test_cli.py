@@ -199,17 +199,17 @@ def _settings(tmp_path: Path) -> Settings:
 def test_require_str_rejects_invalid_values() -> None:
     """Verify required string parsing rejects empty or non-string values.
 
-    Purpose:
+    Summary:
         Keep CLI argument validation strict and deterministic.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli._require_str.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     with pytest.raises(ChapterSplitterError):
@@ -221,17 +221,17 @@ def test_require_str_rejects_invalid_values() -> None:
 def test_optional_path_normalizes_values(tmp_path: Path) -> None:
     """Verify optional path parsing supports None, Path, and string inputs.
 
-    Purpose:
+    Summary:
         Keep parsing predictable for tests and entry points.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli._optional_path.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     assert _optional_path(None, "p", "tests.unit.test_cli") is None
@@ -244,17 +244,17 @@ def test_optional_path_normalizes_values(tmp_path: Path) -> None:
 def test_optional_str_normalizes_values() -> None:
     """Verify optional string parsing supports None and strings.
 
-    Purpose:
+    Summary:
         Keep typed CLI parsing strict without leaking Any.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli._optional_str.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     assert _optional_str(None, "s", "tests.unit.test_cli") is None
@@ -266,17 +266,17 @@ def test_optional_str_normalizes_values() -> None:
 def test_optional_int_normalizes_values() -> None:
     """Verify optional integer parsing supports None and integers.
 
-    Purpose:
+    Summary:
         Keep typed CLI parsing strict without leaking Any.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli._optional_int.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     assert _optional_int(None, "i", "tests.unit.test_cli") is None
@@ -288,17 +288,17 @@ def test_optional_int_normalizes_values() -> None:
 def test_run_split_fails_fast_when_cancelled(tmp_path: Path) -> None:
     """Verify split fails fast when cancellation is already requested.
 
-    Purpose:
+    Summary:
         Avoid doing IO when a shutdown is in progress.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli._run_split cancellation guard.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Cancels a token.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -322,18 +322,18 @@ def test_run_split_applies_cli_overrides(
 ) -> None:
     """Verify split CLI flags override common IO settings without a config file.
 
-    Purpose:
+    Summary:
         Keep one-off CLI runs ergonomic while preserving config defaults.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli._run_split override wiring.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     settings = _settings(tmp_path)
@@ -376,18 +376,18 @@ def test_main_gui_path_returns_gui_exit_code(
 ) -> None:
     """Verify GUI subcommand delegates to the GUI entrypoint.
 
-    Purpose:
+    Summary:
         Keep CLI behavior predictable while allowing a separate GUI workflow.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli.main gui path.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches the GUI entrypoint.
-    Raises:
+    Error handling:
         - None.
     """
     expected_settings = _settings(tmp_path)
@@ -415,18 +415,18 @@ def test_gui_main_passes_injected_settings_to_app_main(
 ) -> None:
     """Verify gui_main forwards injected settings to the GUI app boundary.
 
-    Purpose:
+    Summary:
         Ensure CLI-to-GUI handoff remains explicit and does not reload config implicitly.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli.gui_main.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Injects a fake chapter_splitter.app module into sys.modules.
-    Raises:
+    Error handling:
         - None.
     """
     expected_settings = _settings(tmp_path)
@@ -460,18 +460,18 @@ def test_main_split_path_returns_split_exit_code(
 ) -> None:
     """Verify split subcommand delegates to the split workflow.
 
-    Purpose:
+    Summary:
         Ensure the entrypoint wiring stays stable.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli.main split path.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches config loading, signal registration, and split execution.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setattr(
@@ -494,18 +494,18 @@ def test_main_detect_path_returns_detect_exit_code(
 ) -> None:
     """Verify detect subcommand delegates to the detect workflow.
 
-    Purpose:
+    Summary:
         Ensure the entrypoint wiring stays stable for chapter detection output.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli.main detect path.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches config loading, signal registration, and detect execution.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setattr(
@@ -526,17 +526,17 @@ def test_main_detect_path_returns_detect_exit_code(
 def test_run_detect_requires_toc_hint_for_toc_strategy(tmp_path: Path) -> None:
     """Verify toc strategy requires a TOC hint page.
 
-    Purpose:
+    Summary:
         Keep the toc-only strategy deterministic and avoid surprising scans.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli._run_detect toc argument validation.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -559,18 +559,18 @@ def test_main_split_path_maps_cancellation_to_130(
 ) -> None:
     """Verify cancellation maps to exit code 130.
 
-    Purpose:
+    Summary:
         Use a standard exit code for SIGINT-like cancellation.
-    Ties To:
+    Ties to other methods:
         Covers CancellationError handling in chapter_splitter.cli.main.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches split execution to raise CancellationError.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setattr(
@@ -609,18 +609,18 @@ def test_main_split_path_maps_domain_error_to_1(
 ) -> None:
     """Verify domain errors map to exit code 1.
 
-    Purpose:
+    Summary:
         Ensure predictable error signaling for scripts and CI.
-    Ties To:
+    Ties to other methods:
         Covers ChapterSplitterError handling in chapter_splitter.cli.main.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches split execution to raise ChapterSplitterError.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setattr(
@@ -648,18 +648,18 @@ def test_main_split_records_metrics_hooks(
 ) -> None:
     """Verify CLI boundaries emit counter and timer metrics for command execution.
 
-    Purpose:
+    Summary:
         Ensure metrics hooks are exercised without requiring a concrete backend.
-    Ties To:
+    Ties to other methods:
         Covers metrics instrumentation in chapter_splitter.cli.main.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Records in-memory metrics events.
-    Raises:
+    Error handling:
         - None.
     """
     recorder = _RecordingMetrics()

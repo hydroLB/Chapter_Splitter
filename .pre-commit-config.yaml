@@ -31,6 +31,11 @@ repos:
         entry: python scripts/check_repo_hygiene.py
         language: system
         pass_filenames: false
+      - id: docstring-standards
+        name: docstring-standards
+        entry: python scripts/check_docstring_standards.py
+        language: system
+        pass_filenames: false
       - id: pytest
         name: pytest
         entry: pytest -q

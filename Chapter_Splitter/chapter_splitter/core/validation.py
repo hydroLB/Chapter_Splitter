@@ -16,9 +16,9 @@ def validate_page_range(
 ) -> tuple[int, int]:
     """Validate and normalize a one based page range.
 
-    Purpose:
+    Summary:
         Ensure page ranges are within document bounds and correctly ordered.
-    Ties To:
+    Ties to other methods:
         Used by PDF splitting and chapter validation.
     Inputs:
         - start_page: Start page number, one based.
@@ -27,9 +27,9 @@ def validate_page_range(
         - location: Fully qualified module and method name.
     Outputs:
         - Tuple of validated (start_page, end_page).
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ValidationError: When page ranges are invalid.
     """
     error_location = f"{__name__}.validate_page_range"
@@ -67,9 +67,9 @@ def validate_chapters(
 ) -> list[ChapterDefinition]:
     """Validate a list of chapter definitions.
 
-    Purpose:
+    Summary:
         Ensure chapter definitions are valid and within document bounds.
-    Ties To:
+    Ties to other methods:
         Used by the UI and CLI before invoking the splitter.
     Inputs:
         - chapters: Sequence of ChapterDefinition instances.
@@ -81,9 +81,9 @@ def validate_chapters(
         - location: Fully qualified module and method name.
     Outputs:
         - List of validated ChapterDefinition objects.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ValidationError: When chapter definitions are invalid.
     """
     error_location = f"{__name__}.validate_chapters"

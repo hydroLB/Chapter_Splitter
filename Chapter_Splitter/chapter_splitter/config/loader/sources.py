@@ -13,17 +13,17 @@ from .toml.reader import read_toml_file
 def read_default_settings(location: str) -> dict[str, object]:
     """Read the packaged default settings.toml file.
 
-    Purpose:
+    Summary:
         Load baseline configuration shipped with the application.
-    Ties To:
+    Ties to other methods:
         Invoked by load_settings before merging overrides.
     Inputs:
         - location: Fully qualified module and method name.
     Outputs:
         - Mapping of default configuration values.
-    Side Effects:
+    Side effects:
         Reads the packaged settings.toml file from disk.
-    Raises:
+    Error handling:
         - ConfigurationError: When the default config cannot be read or parsed.
     """
     error_location = f"{__name__}.read_default_settings"
@@ -43,17 +43,17 @@ def read_default_settings(location: str) -> dict[str, object]:
 def resolve_env_path(location: str) -> Path | None:
     """Resolve a user config path from the environment.
 
-    Purpose:
+    Summary:
         Allow optional overrides via CHAPTER_SPLITTER_CONFIG.
-    Ties To:
+    Ties to other methods:
         Used by load_settings when no explicit path is provided.
     Inputs:
         - location: Fully qualified module and method name.
     Outputs:
         - Path to the override config file or None.
-    Side Effects:
+    Side effects:
         Reads environment variables.
-    Raises:
+    Error handling:
         - ConfigurationError: When the path is invalid.
     """
     error_location = f"{__name__}.resolve_env_path"

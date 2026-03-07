@@ -8,17 +8,17 @@ from ..core.errors import ValidationError, format_error_message
 def safe_filename(name: str) -> str:
     """Sanitize a string so it can be used as a filename.
 
-    Purpose:
+    Summary:
         Ensure chapter titles produce safe filenames across operating systems.
-    Ties To:
+    Ties to other methods:
         Used by PDF splitting when naming chapter files.
     Inputs:
         - name: Raw filename candidate.
     Outputs:
         - Sanitized filename string.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ValidationError: When name is empty or not a string.
     """
     if not isinstance(name, str):

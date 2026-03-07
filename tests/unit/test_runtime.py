@@ -15,17 +15,17 @@ from chapter_splitter.core import CancellationError, CancellationToken, register
 def test_cancellation_token_requires_reason() -> None:
     """Verify cancellation requires a reason.
 
-    Purpose:
+    Summary:
         Ensure cancellation diagnostics are always actionable.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.core.runtime.CancellationToken.cancel.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -36,17 +36,17 @@ def test_cancellation_token_requires_reason() -> None:
 def test_cancellation_token_check_raises_when_cancelled() -> None:
     """Verify check raises after cancellation is requested.
 
-    Purpose:
+    Summary:
         Provide a consistent cancellation guard across long-running operations.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.core.runtime.CancellationToken.check.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Cancels the token.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -59,17 +59,17 @@ def test_cancellation_token_check_raises_when_cancelled() -> None:
 def test_register_signal_handlers_installs_handlers(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify register_signal_handlers installs handlers and triggers shutdown.
 
-    Purpose:
+    Summary:
         Ensure CLI and GUI boundaries share a consistent shutdown path.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.core.runtime.register_signal_handlers.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches signal.signal to capture handlers.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -101,17 +101,17 @@ def test_register_signal_handlers_surfaces_registration_errors(
 ) -> None:
     """Verify registration errors surface as CancellationError.
 
-    Purpose:
+    Summary:
         Ensure failures to register signal handlers fail fast and clearly.
-    Ties To:
+    Ties to other methods:
         Covers exception handling in register_signal_handlers.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches signal.signal to raise.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()

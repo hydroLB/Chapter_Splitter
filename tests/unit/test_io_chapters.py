@@ -21,17 +21,17 @@ from chapter_splitter.utils import Deadline
 def test_load_chapter_file_requires_existing_path(tmp_path: Path) -> None:
     """Verify loader fails when chapter file does not exist.
 
-    Purpose:
+    Summary:
         Provide immediate feedback for CLI users pointing at the wrong file.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.io.chapters.load_chapter_file.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -48,17 +48,17 @@ def test_load_chapter_file_requires_existing_path(tmp_path: Path) -> None:
 def test_load_chapter_file_rejects_invalid_toml(tmp_path: Path) -> None:
     """Verify invalid TOML is rejected as a validation error.
 
-    Purpose:
+    Summary:
         Avoid undefined behavior when chapter files are malformed.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.io.chapters.load_chapter_file.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a temporary file.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -77,17 +77,17 @@ def test_load_chapter_file_rejects_invalid_toml(tmp_path: Path) -> None:
 def test_load_chapter_file_rejects_missing_chapters_array(tmp_path: Path) -> None:
     """Verify loader requires a top-level chapters array.
 
-    Purpose:
+    Summary:
         Keep the chapter file schema strict and predictable.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.io.chapters.load_chapter_file.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a temporary file.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -106,17 +106,17 @@ def test_load_chapter_file_rejects_missing_chapters_array(tmp_path: Path) -> Non
 def test_load_chapter_file_parses_valid_entries(tmp_path: Path) -> None:
     """Verify loader parses valid chapter definitions.
 
-    Purpose:
+    Summary:
         Ensure CLI chapter files map to ChapterDefinition objects.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.io.chapters.load_chapter_file.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes and reads a temporary file.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -146,17 +146,17 @@ end_page = 2
 def test_load_chapter_file_with_metadata_returns_session_data(tmp_path: Path) -> None:
     """Verify chapter loader returns optional session metadata when present.
 
-    Purpose:
+    Summary:
         Allow GUI workflows to warn on mismatched PDFs during imports.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.io.chapters.load_chapter_file_with_metadata.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes and reads a temporary file.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -194,17 +194,17 @@ end_page = 2
 def test_write_chapter_file_writes_session_and_chapters(tmp_path: Path) -> None:
     """Verify writer produces a TOML file containing session metadata and chapters.
 
-    Purpose:
+    Summary:
         Ensure GUI exports are deterministic and can be re-imported later.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.io.chapters.write_chapter_file session rendering.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a TOML file to disk.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()
@@ -236,17 +236,17 @@ def test_write_chapter_file_writes_session_and_chapters(tmp_path: Path) -> None:
 def test_write_chapter_file_writes_detection_when_provided(tmp_path: Path) -> None:
     """Verify writer includes [detection] metadata when a report is provided.
 
-    Purpose:
+    Summary:
         Preserve CLI detect diagnostics in exported chapter files.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.io.chapters.write_chapter_file detection rendering.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a TOML file to disk.
-    Raises:
+    Error handling:
         - None.
     """
     token = CancellationToken()

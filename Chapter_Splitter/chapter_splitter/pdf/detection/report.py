@@ -14,17 +14,17 @@ ChapterDetectionStrategy = Literal["outlines", "toc", "none"]
 class ChapterDetectionReport:
     """Chapter detection outcome with confidence and warnings.
 
-    Purpose:
+    Summary:
         Provide a structured, user-facing summary of detection output for UI and logs.
-    Ties To:
+    Ties to other methods:
         Returned by chapter_splitter.pdf.detection.detector.detect_chapters.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 

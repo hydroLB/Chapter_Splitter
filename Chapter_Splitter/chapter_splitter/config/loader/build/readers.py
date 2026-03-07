@@ -12,9 +12,9 @@ _MISSING = object()
 def get_section(raw: Mapping[str, object], section_name: str, location: str) -> dict[str, object]:
     """Return a section dictionary from the top-level raw config mapping.
 
-    Purpose:
+    Summary:
         Validate and extract section mappings so per-section builders can rely on strict types.
-    Ties To:
+    Ties to other methods:
         Used by chapter_splitter.config.loader.build.settings.
     Inputs:
         - raw: Top-level configuration mapping.
@@ -22,9 +22,9 @@ def get_section(raw: Mapping[str, object], section_name: str, location: str) -> 
         - location: Fully qualified module and method name.
     Outputs:
         - Section dictionary.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the section is missing or not a dictionary.
     """
     error_location = f"{__name__}.get_section"
@@ -54,9 +54,9 @@ def get_section(raw: Mapping[str, object], section_name: str, location: str) -> 
 def read_str(section: Mapping[str, object], key: str, location: str) -> str:
     """Read a required string key from a section.
 
-    Purpose:
+    Summary:
         Enforce strict string typing for configuration values.
-    Ties To:
+    Ties to other methods:
         Used by settings builders in chapter_splitter.config.loader.build.settings.
     Inputs:
         - section: Section mapping.
@@ -64,9 +64,9 @@ def read_str(section: Mapping[str, object], key: str, location: str) -> str:
         - location: Fully qualified module and method name.
     Outputs:
         - String value.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the key is missing or not a string.
     """
     error_location = f"{__name__}.read_str"
@@ -79,9 +79,9 @@ def read_str(section: Mapping[str, object], key: str, location: str) -> str:
 def read_bool(section: Mapping[str, object], key: str, location: str) -> bool:
     """Read a required boolean key from a section.
 
-    Purpose:
+    Summary:
         Enforce strict boolean typing for configuration values.
-    Ties To:
+    Ties to other methods:
         Used by settings builders in chapter_splitter.config.loader.build.settings.
     Inputs:
         - section: Section mapping.
@@ -89,9 +89,9 @@ def read_bool(section: Mapping[str, object], key: str, location: str) -> bool:
         - location: Fully qualified module and method name.
     Outputs:
         - Boolean value.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the key is missing or not a boolean.
     """
     error_location = f"{__name__}.read_bool"
@@ -104,9 +104,9 @@ def read_bool(section: Mapping[str, object], key: str, location: str) -> bool:
 def read_int(section: Mapping[str, object], key: str, location: str) -> int:
     """Read a required integer key from a section.
 
-    Purpose:
+    Summary:
         Enforce strict integer typing while rejecting boolean values.
-    Ties To:
+    Ties to other methods:
         Used by settings builders in chapter_splitter.config.loader.build.settings.
     Inputs:
         - section: Section mapping.
@@ -114,9 +114,9 @@ def read_int(section: Mapping[str, object], key: str, location: str) -> int:
         - location: Fully qualified module and method name.
     Outputs:
         - Integer value.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the key is missing or not an integer.
     """
     error_location = f"{__name__}.read_int"
@@ -129,9 +129,9 @@ def read_int(section: Mapping[str, object], key: str, location: str) -> int:
 def read_float(section: Mapping[str, object], key: str, location: str) -> float:
     """Read a required floating-point key from a section.
 
-    Purpose:
+    Summary:
         Accept numeric values for float fields while rejecting booleans.
-    Ties To:
+    Ties to other methods:
         Used by settings builders in chapter_splitter.config.loader.build.settings.
     Inputs:
         - section: Section mapping.
@@ -139,9 +139,9 @@ def read_float(section: Mapping[str, object], key: str, location: str) -> float:
         - location: Fully qualified module and method name.
     Outputs:
         - Float value.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the key is missing or not numeric.
     """
     error_location = f"{__name__}.read_float"
@@ -154,9 +154,9 @@ def read_float(section: Mapping[str, object], key: str, location: str) -> float:
 def read_str_list(section: Mapping[str, object], key: str, location: str) -> list[str]:
     """Read a required list of strings from a section.
 
-    Purpose:
+    Summary:
         Enforce strict list-of-strings typing for config arrays.
-    Ties To:
+    Ties to other methods:
         Used by settings builders in chapter_splitter.config.loader.build.settings.
     Inputs:
         - section: Section mapping.
@@ -164,9 +164,9 @@ def read_str_list(section: Mapping[str, object], key: str, location: str) -> lis
         - location: Fully qualified module and method name.
     Outputs:
         - List of strings.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the key is missing or contains invalid values.
     """
     error_location = f"{__name__}.read_str_list"
@@ -184,9 +184,9 @@ def read_str_list(section: Mapping[str, object], key: str, location: str) -> lis
 def read_int_list(section: Mapping[str, object], key: str, location: str) -> list[int]:
     """Read a required list of integers from a section.
 
-    Purpose:
+    Summary:
         Enforce strict list-of-integers typing for config arrays.
-    Ties To:
+    Ties to other methods:
         Used by settings builders in chapter_splitter.config.loader.build.settings.
     Inputs:
         - section: Section mapping.
@@ -194,9 +194,9 @@ def read_int_list(section: Mapping[str, object], key: str, location: str) -> lis
         - location: Fully qualified module and method name.
     Outputs:
         - List of integers.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the key is missing or contains invalid values.
     """
     error_location = f"{__name__}.read_int_list"
@@ -219,9 +219,9 @@ def _require_key(
 ) -> object:
     """Read a required key from a section or raise a configuration error.
 
-    Purpose:
+    Summary:
         Provide consistent missing-key handling for typed readers.
-    Ties To:
+    Ties to other methods:
         Used by read_str/read_bool/read_int/read_float/read_str_list/read_int_list.
     Inputs:
         - section: Section mapping.
@@ -230,9 +230,9 @@ def _require_key(
         - error_location: Reader method location used in the error message.
     Outputs:
         - Raw value from the section mapping.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When key is missing or key name is invalid.
     """
     context = f" Context: {location}." if location else ""
@@ -260,9 +260,9 @@ def _type_error(
 ) -> ConfigurationError:
     """Create a standardized type-mismatch configuration error.
 
-    Purpose:
+    Summary:
         Keep type mismatch error messages consistent and actionable.
-    Ties To:
+    Ties to other methods:
         Used by all typed readers in this module.
     Inputs:
         - error_location: Reader method location used in the error message.
@@ -272,9 +272,9 @@ def _type_error(
         - location: Fully qualified module and method name.
     Outputs:
         - ConfigurationError ready to be raised.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     context = f" Context: {location}." if location else ""

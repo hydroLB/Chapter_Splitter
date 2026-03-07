@@ -14,34 +14,34 @@ from .errors import CancellationError, format_error_message
 class CancellationToken:
     """Thread safe cancellation token for long running operations.
 
-    Purpose:
+    Summary:
         Track cancellation requests across threads and workflows.
-    Ties To:
+    Ties to other methods:
         Shared by CLI, UI, PDF processing, and IO operations.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
     def __init__(self) -> None:
         """Initialize the cancellation token.
 
-        Purpose:
+        Summary:
             Create a token that can be shared across workflows and threads.
-        Ties To:
+        Ties to other methods:
             Constructed in entry points and passed into long running functions.
         Inputs:
             - None.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Allocates an internal threading event.
-        Raises:
+        Error handling:
             - None.
         """
         self._event: threading.Event = threading.Event()
@@ -50,18 +50,18 @@ class CancellationToken:
     def cancel(self, reason: str, location: str) -> None:
         """Record a cancellation request.
 
-        Purpose:
+        Summary:
             Signal a cancellation request and store a reason for diagnostics.
-        Ties To:
+        Ties to other methods:
             Used by signal handlers and UI close events to abort work.
         Inputs:
             - reason: Human readable reason for the cancellation.
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Sets an internal event and records a reason.
-        Raises:
+        Error handling:
             - CancellationError: When the provided reason is empty.
         """
         error_location = f"{__name__}.CancellationToken.cancel"
@@ -78,17 +78,17 @@ class CancellationToken:
     def check(self, location: str) -> None:
         """Raise when cancellation has been requested.
 
-        Purpose:
+        Summary:
             Provide a consistent guard to stop work when cancellation is requested.
-        Ties To:
+        Ties to other methods:
             Called inside IO loops, PDF processing, and UI workflows.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - CancellationError: When cancellation has been requested.
         """
         error_location = f"{__name__}.CancellationToken.check"
@@ -100,17 +100,17 @@ class CancellationToken:
     def is_cancelled(self) -> bool:
         """Return whether cancellation has been requested.
 
-        Purpose:
+        Summary:
             Allow non raising checks in shutdown paths.
-        Ties To:
+        Ties to other methods:
             Used by UI teardown and CLI exit handlers.
         Inputs:
             - None.
         Outputs:
             - True when cancellation is requested.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         return self._event.is_set()
@@ -124,9 +124,9 @@ def register_signal_handlers(
 ) -> None:
     """Register SIGINT and SIGTERM handlers for graceful shutdown.
 
-    Purpose:
+    Summary:
         Ensure a consistent shutdown path for CLI and GUI entry points.
-    Ties To:
+    Ties to other methods:
         Called by chapter_splitter.app.main and chapter_splitter.cli.main.
     Inputs:
         - token: Cancellation token to trigger on signal.
@@ -135,27 +135,27 @@ def register_signal_handlers(
         - location: Fully qualified module and method name.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Installs process wide signal handlers.
-    Raises:
+    Error handling:
         - CancellationError: When signal handlers cannot be registered.
     """
 
     def _handler(signum: int, _frame: FrameType | None) -> None:
         """Handle termination signals by triggering shutdown.
 
-        Purpose:
+        Summary:
             Translate SIGINT and SIGTERM into a structured cancellation signal.
-        Ties To:
+        Ties to other methods:
             Called by the Python signal module during process shutdown.
         Inputs:
             - signum: Numeric signal identifier from the OS.
             - _frame: Current stack frame, unused.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Cancels operations and invokes the shutdown callback.
-        Raises:
+        Error handling:
             - CancellationError: When cancellation fails to record a reason.
         """
         signal_name = signal.Signals(signum).name

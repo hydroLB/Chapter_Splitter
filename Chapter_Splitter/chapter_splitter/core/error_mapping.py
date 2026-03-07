@@ -13,17 +13,17 @@ from .errors import CancellationError, ChapterSplitterError, ErrorCode, format_e
 class ErrorPayload:
     """Structured error payload used across CLI, UI, and app boundaries.
 
-    Purpose:
+    Summary:
         Keep error logs and exit behavior consistent across process entrypoints and UI actions.
-    Ties To:
+    Ties to other methods:
         Produced by map_error and consumed by app, cli, and Qt workflow handlers.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -38,17 +38,17 @@ class ErrorPayload:
     def log_fields(self, *, location: str) -> dict[str, object]:
         """Return structured fields for logging.
 
-        Purpose:
+        Summary:
             Attach stable metadata to logs without duplicating formatting logic.
-        Ties To:
+        Ties to other methods:
             Used by app, CLI, and UI catch blocks.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - Dictionary of structured log fields.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         return {
@@ -67,9 +67,9 @@ def map_error(
 ) -> ErrorPayload:
     """Map an exception to a stable structured payload.
 
-    Purpose:
+    Summary:
         Centralize exit semantics, log event names, and error metadata for all boundaries.
-    Ties To:
+    Ties to other methods:
         Called by app.main, cli.main, and UI workflow error handlers.
     Inputs:
         - exc: Exception to map.
@@ -77,9 +77,9 @@ def map_error(
         - location: Fully qualified module and method name.
     Outputs:
         - ErrorPayload with stable code, event name, and behavior metadata.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     if isinstance(exc, CancellationError):

@@ -19,17 +19,17 @@ from chapter_splitter.utils import Deadline
 def main() -> int:
     """Run profiler for core PDF workflows.
 
-    Purpose:
+    Summary:
         Generate a profiling report for chapter splitting and outline detection.
-    Ties To:
+    Ties to other methods:
         Supports performance validation and optimization work.
     Inputs:
         - None.
     Outputs:
         - Exit code integer.
-    Side Effects:
+    Side effects:
         Writes a profiling report to disk.
-    Raises:
+    Error handling:
         - RuntimeError: When profiling fails.
     """
     parser = argparse.ArgumentParser(description="Profile chapter splitter hot paths.")
@@ -84,9 +84,9 @@ def main() -> int:
 def _create_profile_pdf(path: Path, page_count: int, outline_titles: list[str]) -> Path:
     """Create a PDF file for profiling runs.
 
-    Purpose:
+    Summary:
         Generate a PDF with outlines for profiling workflows.
-    Ties To:
+    Ties to other methods:
         Used by the main profiling routine in this script.
     Inputs:
         - path: Destination path for the PDF.
@@ -94,9 +94,9 @@ def _create_profile_pdf(path: Path, page_count: int, outline_titles: list[str]) 
         - outline_titles: Outline titles to embed.
     Outputs:
         - Path to the created PDF.
-    Side Effects:
+    Side effects:
         Writes a PDF file to disk.
-    Raises:
+    Error handling:
         - RuntimeError: When the PDF cannot be written.
     """
     writer = PdfWriter()

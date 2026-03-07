@@ -32,18 +32,18 @@ class TextExtractableReaderProtocol(Protocol):
 class TocEntry:
     """Parsed TOC entry.
 
-    Purpose:
+    Summary:
         Provide an intermediate representation while converting TOC lines to chapter ranges.
-    Ties To:
+    Ties to other methods:
         Used by detect_chapters_from_toc_page.
     Inputs:
         - title: Parsed chapter title.
         - page: Parsed 1-based page number.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -55,17 +55,17 @@ class TocEntry:
 class TocDetectionReport:
     """Structured TOC detection output and diagnostics.
 
-    Purpose:
+    Summary:
         Provide detection results with confidence and warnings for UI surfaces.
-    Ties To:
+    Ties to other methods:
         Returned by detect_best_toc_chapters and consumed by the unified detector.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -88,9 +88,9 @@ def detect_chapters_from_toc_page(
 ) -> list[ChapterDefinition]:
     """Detect chapter ranges from a Table of Contents page.
 
-    Purpose:
+    Summary:
         Provide a fallback chapter inference path when PDF outline metadata is missing.
-    Ties To:
+    Ties to other methods:
         Used by the GUI when the user navigates to a TOC page and requests detection.
     Inputs:
         - reader: Reader with page text extraction support.
@@ -102,9 +102,9 @@ def detect_chapters_from_toc_page(
         - location: Fully qualified module and method name.
     Outputs:
         - List of ChapterDefinition objects inferred from TOC entries.
-    Side Effects:
+    Side effects:
         Extracts text from PDF pages in memory.
-    Raises:
+    Error handling:
         - PdfProcessingError: When parsing fails or the TOC cannot be interpreted.
     """
     report = detect_best_toc_chapters(
@@ -132,9 +132,9 @@ def detect_best_toc_chapters(
 ) -> TocDetectionReport:
     """Detect chapters from TOC text by scanning candidate pages and scoring results.
 
-    Purpose:
+    Summary:
         Provide a robust TOC fallback by trying multiple start pages and returning the best parse.
-    Ties To:
+    Ties to other methods:
         Used by the unified detector and GUI preview action.
     Inputs:
         - reader: Reader with page text extraction support.
@@ -147,9 +147,9 @@ def detect_best_toc_chapters(
         - force_hint_page: When True, only scan starting from toc_hint_page.
     Outputs:
         - TocDetectionReport containing best-effort chapters and diagnostics.
-    Side Effects:
+    Side effects:
         Extracts text from PDF pages in memory.
-    Raises:
+    Error handling:
         - PdfProcessingError: When inputs are invalid.
     """
     token.check(location)
@@ -315,9 +315,9 @@ def _parse_toc_line(
 ) -> TocEntry | None:
     """Parse a single TOC line into a TocEntry when it matches expected patterns.
 
-    Purpose:
+    Summary:
         Isolate TOC line parsing so detection stays readable and easy to tune.
-    Ties To:
+    Ties to other methods:
         Used by detect_chapters_from_toc_page.
     Inputs:
         - line: Candidate TOC line.
@@ -326,9 +326,9 @@ def _parse_toc_line(
         - location: Fully qualified module and method name.
     Outputs:
         - TocEntry when parsed, otherwise None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - PdfProcessingError: When a match yields an invalid page number.
     """
     error_location = f"{__name__}._parse_toc_line"

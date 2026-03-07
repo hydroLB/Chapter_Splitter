@@ -11,18 +11,18 @@ from .dependencies import PdfReader
 def extract_page_labels(reader: PdfReader, location: str) -> list[str] | None:
     """Return page labels when available.
 
-    Purpose:
+    Summary:
         Map visible page labels to numeric pages for UI display.
-    Ties To:
+    Ties to other methods:
         Used by the Qt GUI workflow to prefill labels.
     Inputs:
         - reader: PdfReader instance.
         - location: Fully qualified module and method name.
     Outputs:
         - List of labels or None when labels are not present.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - PdfProcessingError: When labels are malformed or unavailable.
     """
     error_location = f"{__name__}.extract_page_labels"
@@ -50,10 +50,10 @@ def infer_page_offset_from_labels(
 ) -> int | None:
     """Infer a page offset from PDF page labels when they contain a numeric run.
 
-    Purpose:
+    Summary:
         Help map user-facing page numbers to PDF page indices without manual configuration when a
         PDF exposes page label metadata.
-    Ties To:
+    Ties to other methods:
         Used by the split pipeline when io.infer_page_offset_from_labels is enabled.
     Inputs:
         - labels: Page labels indexed by the PDF's physical page order.
@@ -61,7 +61,7 @@ def infer_page_offset_from_labels(
         - location: Fully qualified module and method name.
     Outputs:
         - Inferred non-negative page_offset value, or None when inference is not possible.
-    Side Effects:
+    Side effects:
         None.
     Error handling:
         Raises PdfProcessingError when min_sequential_numeric_labels is invalid.

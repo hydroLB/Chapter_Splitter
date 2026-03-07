@@ -11,17 +11,17 @@ from ....core.errors import ConfigurationError, format_error_message
 class DetectionConfig:
     """Detection configuration for chapter inference.
 
-    Purpose:
+    Summary:
         Centralize knobs for fallback chapter detection when outline metadata is unavailable.
-    Ties To:
+    Ties to other methods:
         Used by TOC-based detection in chapter_splitter.pdf.detection.toc.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -41,9 +41,9 @@ class DetectionConfig:
     ) -> None:
         """Initialize detection configuration.
 
-        Purpose:
+        Summary:
             Provide validated knobs for TOC fallback parsing.
-        Ties To:
+        Ties to other methods:
             Loaded via the config loader and validated in Settings.validate.
         Inputs:
             - enable_toc_fallback: Whether TOC parsing fallback is enabled.
@@ -59,9 +59,9 @@ class DetectionConfig:
             - outline_merge_tiny_title_joiner: Joiner used when merging outline chapter titles.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.enable_toc_fallback = enable_toc_fallback
@@ -79,17 +79,17 @@ class DetectionConfig:
     def validate(self, location: str) -> None:
         """Validate detection configuration.
 
-        Purpose:
+        Summary:
             Ensure regex patterns compile and numeric limits are consistent.
-        Ties To:
+        Ties to other methods:
             Called by Settings.validate before detection logic uses the configuration.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Compiles regex patterns to validate.
-        Raises:
+        Error handling:
             - ConfigurationError: When configuration values are invalid.
         """
         error_location = f"{__name__}.DetectionConfig.validate"

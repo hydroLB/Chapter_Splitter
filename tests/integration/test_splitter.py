@@ -16,17 +16,17 @@ from chapter_splitter.utils import Deadline
 def test_split_pdf_into_chapters_creates_outputs(sample_pdf: Path) -> None:
     """Verify splitting creates the expected output files.
 
-    Purpose:
+    Summary:
         Ensure split_pdf_into_chapters writes chapter PDFs to disk.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.splitting.splitter.split_pdf_into_chapters.
     Inputs:
         - sample_pdf: Fixture providing a temporary PDF path.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes chapter PDFs into the output directory.
-    Raises:
+    Error handling:
         - None.
     """
     settings = load_settings(None, "tests.integration.test_splitter")
@@ -56,17 +56,17 @@ def test_split_pdf_into_chapters_creates_outputs(sample_pdf: Path) -> None:
 def test_split_rejects_existing_output_when_policy_error(sample_pdf: Path) -> None:
     """Verify policy error blocks export when an output path already exists.
 
-    Purpose:
+    Summary:
         Ensure collision handling is explicit and avoids overwriting user files by default.
-    Ties To:
+    Ties to other methods:
         Covers io.output_collision_policy behavior in split_pdf_into_chapters.
     Inputs:
         - sample_pdf: Fixture providing a temporary PDF path.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Creates a colliding file in the output directory.
-    Raises:
+    Error handling:
         - None.
     """
     settings = load_settings(None, "tests.integration.test_splitter")
@@ -94,17 +94,17 @@ def test_split_rejects_existing_output_when_policy_error(sample_pdf: Path) -> No
 def test_split_suffix_policy_generates_unique_paths(sample_pdf: Path) -> None:
     """Verify suffix collision policy generates unique output filenames.
 
-    Purpose:
+    Summary:
         Ensure exports can succeed even when titles or existing files collide.
-    Ties To:
+    Ties to other methods:
         Covers io.output_collision_policy='suffix' behavior in split_pdf_into_chapters.
     Inputs:
         - sample_pdf: Fixture providing a temporary PDF path.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes multiple chapter outputs.
-    Raises:
+    Error handling:
         - None.
     """
     settings = load_settings(None, "tests.integration.test_splitter")
@@ -137,17 +137,17 @@ def test_split_suffix_policy_generates_unique_paths(sample_pdf: Path) -> None:
 def test_split_validates_overlapping_ranges(sample_pdf: Path) -> None:
     """Verify overlap validation prevents ambiguous exports.
 
-    Purpose:
+    Summary:
         Ensure chapter definitions cannot duplicate pages across outputs when configured.
-    Ties To:
+    Ties to other methods:
         Covers validation.reject_overlapping_ranges in validate_chapters.
     Inputs:
         - sample_pdf: Fixture providing a temporary PDF path.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     settings = load_settings(None, "tests.integration.test_splitter")
@@ -177,18 +177,18 @@ def test_split_atomic_overwrite_does_not_corrupt_existing_file_on_failure(
 ) -> None:
     """Verify atomic writing preserves existing output files if a write fails.
 
-    Purpose:
+    Summary:
         Prevent partial files and ensure overwrite does not corrupt existing chapter exports.
-    Ties To:
+    Ties to other methods:
         Covers the temporary-file + atomic replace logic in the split pipeline.
     Inputs:
         - sample_pdf: Fixture providing a temporary PDF path.
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Creates a colliding output file and forces a write failure.
-    Raises:
+    Error handling:
         - None.
     """
     settings = load_settings(None, "tests.integration.test_splitter")

@@ -14,17 +14,17 @@ from chapter_splitter.utils import Deadline
 def test_deadline_rejects_non_finite_timeout() -> None:
     """Verify non-finite timeouts are rejected.
 
-    Purpose:
+    Summary:
         Prevent silent disabling of timeouts when configuration provides NaN or infinity values.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.utils.timing.Deadline.__init__.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     with pytest.raises(CancellationError):
@@ -36,17 +36,17 @@ def test_deadline_rejects_non_finite_timeout() -> None:
 def test_deadline_check_raises_after_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify deadline check raises after the timeout has been exceeded.
 
-    Purpose:
+    Summary:
         Ensure Deadline.check provides a deterministic timeout guard for callers.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.utils.timing.Deadline.check.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches time.monotonic for determinism.
-    Raises:
+    Error handling:
         - None.
     """
     times = iter([0.0, 0.0, 0.2])

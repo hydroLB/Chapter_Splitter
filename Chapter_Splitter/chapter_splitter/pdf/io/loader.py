@@ -23,9 +23,9 @@ def load_reader(
 ) -> PdfReader:
     """Load a PdfReader with retries and deadline checks.
 
-    Purpose:
+    Summary:
         Provide resilient PDF loading with clear error reporting.
-    Ties To:
+    Ties to other methods:
         Used by outline detection and splitting workflows.
     Inputs:
         - pdf_path: Path to the PDF file.
@@ -35,9 +35,9 @@ def load_reader(
         - location: Fully qualified module and method name.
     Outputs:
         - PdfReader instance.
-    Side Effects:
+    Side effects:
         Reads the PDF file from disk.
-    Raises:
+    Error handling:
         - IoError: When the file cannot be read after retries.
         - PdfProcessingError: When the PDF content is invalid.
     """
@@ -51,17 +51,17 @@ def load_reader(
     def _open() -> PdfReader:
         """Open a PDF reader instance.
 
-        Purpose:
+        Summary:
             Isolate reader creation for retry and timeout control.
-        Ties To:
+        Ties to other methods:
             Used by load_reader as the retried action.
         Inputs:
             - None.
         Outputs:
             - PdfReader instance.
-        Side Effects:
+        Side effects:
             Opens the PDF file from disk.
-        Raises:
+        Error handling:
             - PdfProcessingError: When the PDF content is invalid.
         """
         token.check(location)
@@ -93,18 +93,18 @@ def load_reader(
 def get_total_pages(reader: PdfReader, location: str) -> int:
     """Return page count for the given reader.
 
-    Purpose:
+    Summary:
         Provide a clear, validated page count for a PDF reader.
-    Ties To:
+    Ties to other methods:
         Used by splitting and validation workflows.
     Inputs:
         - reader: PdfReader instance.
         - location: Fully qualified module and method name.
     Outputs:
         - Total page count.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - PdfProcessingError: When the reader has no pages.
     """
     error_location = f"{__name__}.get_total_pages"

@@ -11,18 +11,18 @@ from pathlib import Path
 def main() -> int:
     """Build a standalone binary using PyInstaller.
 
-    Purpose:
+    Summary:
         Provide a single, repeatable command to bundle the GUI and/or CLI into distributable
         artifacts without requiring users to install Python.
-    Ties To:
+    Ties to other methods:
         Used for producing a true desktop app style install for local distribution.
     Inputs:
         - None.
     Outputs:
         - Exit code integer (0 success, non-zero failure).
-    Side Effects:
+    Side effects:
         Invokes PyInstaller and writes build artifacts under the selected output directory.
-    Raises:
+    Error handling:
         - RuntimeError: When PyInstaller is not available or the build fails.
     """
     parser = argparse.ArgumentParser(description="Bundle Chapter Splitter via PyInstaller.")
@@ -95,17 +95,17 @@ def main() -> int:
 def _require_preview_dependency() -> None:
     """Ensure the optional preview dependency is installed.
 
-    Purpose:
+    Summary:
         Allow bundling to fail fast with a clear message when preview inclusion is requested.
-    Ties To:
+    Ties to other methods:
         Used by main when --include-preview is set.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Imports the fitz module to confirm availability.
-    Raises:
+    Error handling:
         - RuntimeError: When PyMuPDF is not installed.
     """
     try:
@@ -128,9 +128,9 @@ def _run_pyinstaller(
 ) -> None:
     """Invoke PyInstaller with consistent options.
 
-    Purpose:
+    Summary:
         Keep the bundling invocation deterministic and centralized so updates do not drift.
-    Ties To:
+    Ties to other methods:
         Used by main for each requested build target.
     Inputs:
         - entry: Entry script path.
@@ -142,9 +142,9 @@ def _run_pyinstaller(
         - include_preview: Whether to include preview-related hidden imports.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Runs a subprocess to execute PyInstaller.
-    Raises:
+    Error handling:
         - RuntimeError: When the build fails or PyInstaller is unavailable.
     """
     if not entry.exists():

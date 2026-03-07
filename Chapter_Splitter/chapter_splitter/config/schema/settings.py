@@ -15,17 +15,17 @@ from .sections.validation import ValidationConfig
 class Settings:
     """Top level application settings.
 
-    Purpose:
+    Summary:
         Provide a validated container for all configuration sections.
-    Ties To:
+    Ties to other methods:
         Loaded by config loader and used by CLI and UI entry points.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -42,9 +42,9 @@ class Settings:
     ) -> None:
         """Initialize the settings registry.
 
-        Purpose:
+        Summary:
             Aggregate all configuration sections into a single object.
-        Ties To:
+        Ties to other methods:
             Used by config registry and injected into runtime modules.
         Inputs:
             - app: Application configuration.
@@ -57,9 +57,9 @@ class Settings:
             - performance: Performance configuration.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.app = app
@@ -74,17 +74,17 @@ class Settings:
     def validate(self, location: str) -> None:
         """Validate all configuration sections.
 
-        Purpose:
+        Summary:
             Ensure configuration is internally consistent before use.
-        Ties To:
+        Ties to other methods:
             Called after loading configuration and before runtime setup.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ConfigurationError: When any section fails validation.
         """
         self.app.validate(location)

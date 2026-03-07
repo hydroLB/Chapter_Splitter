@@ -15,17 +15,17 @@ from chapter_splitter.core import (
 def test_validate_page_range_accepts_valid_range() -> None:
     """Verify valid ranges pass validation.
 
-    Purpose:
+    Summary:
         Ensure validate_page_range returns the expected range.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.core.validation.validate_page_range.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     assert validate_page_range(1, 3, 10, "tests.unit.test_validation") == (1, 3)
@@ -34,17 +34,17 @@ def test_validate_page_range_accepts_valid_range() -> None:
 def test_validate_page_range_rejects_invalid_range() -> None:
     """Verify invalid ranges raise validation errors.
 
-    Purpose:
+    Summary:
         Ensure validate_page_range rejects invalid inputs.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.core.validation.validate_page_range.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     with pytest.raises(ValidationError):
@@ -54,17 +54,17 @@ def test_validate_page_range_rejects_invalid_range() -> None:
 def test_validate_chapters_enforces_limits() -> None:
     """Verify chapter validation enforces title uniqueness.
 
-    Purpose:
+    Summary:
         Ensure validate_chapters enforces unique titles when required.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.core.validation.validate_chapters.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     chapters = [
@@ -86,17 +86,17 @@ def test_validate_chapters_enforces_limits() -> None:
 def test_validate_chapters_rejects_overlapping_ranges() -> None:
     """Verify chapter validation rejects overlapping page ranges.
 
-    Purpose:
+    Summary:
         Ensure exports cannot silently produce duplicate pages across chapters.
-    Ties To:
+    Ties to other methods:
         Covers overlap enforcement in chapter_splitter.core.validation.validate_chapters.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     chapters = [

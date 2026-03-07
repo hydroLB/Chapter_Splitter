@@ -45,17 +45,17 @@ def _default_detection() -> DetectionConfig:
 def test_detect_chapters_from_toc_page_parses_dotted_leaders() -> None:
     """Verify TOC detection parses dotted-leader entries into chapter ranges.
 
-    Purpose:
+    Summary:
         Ensure the fallback parser produces deterministic chapter ranges without PDF outlines.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.detection.toc.detect_chapters_from_toc_page.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = _FakeReader(
@@ -94,17 +94,17 @@ def test_detect_chapters_from_toc_page_parses_dotted_leaders() -> None:
 def test_detect_chapters_from_toc_page_returns_empty_when_insufficient_entries() -> None:
     """Verify TOC detection returns an empty list when it cannot find enough entries.
 
-    Purpose:
+    Summary:
         Avoid populating the grid with low-confidence or partial TOC parses.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.detection.toc.detect_chapters_from_toc_page.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = _FakeReader(

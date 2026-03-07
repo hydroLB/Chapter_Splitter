@@ -21,17 +21,17 @@ from chapter_splitter.utils import Deadline
 def main() -> int:
     """Measure performance and write the baseline JSON file.
 
-    Purpose:
+    Summary:
         Provide a repeatable way to update benchmark baselines.
-    Ties To:
+    Ties to other methods:
         Supports performance regression testing in CI.
     Inputs:
         - None.
     Outputs:
         - Exit code integer.
-    Side Effects:
+    Side effects:
         Writes baseline JSON data to disk.
-    Raises:
+    Error handling:
         - RuntimeError: When writing the baseline fails.
     """
     parser = argparse.ArgumentParser(description="Update benchmark baselines.")
@@ -122,18 +122,18 @@ def main() -> int:
 def _create_benchmark_pdf(path: Path, page_count: int) -> Path:
     """Create a PDF for benchmark runs.
 
-    Purpose:
+    Summary:
         Generate a PDF with outlines for benchmark measurements.
-    Ties To:
+    Ties to other methods:
         Used by main to build benchmark inputs.
     Inputs:
         - path: Destination path for the PDF.
         - page_count: Number of pages to include.
     Outputs:
         - Path to the created PDF.
-    Side Effects:
+    Side effects:
         Writes a PDF file to disk.
-    Raises:
+    Error handling:
         - RuntimeError: When the PDF cannot be written.
     """
     writer = PdfWriter()

@@ -12,9 +12,9 @@ def merge_configs(
 ) -> dict[str, object]:
     """Merge override configuration values into the base config.
 
-    Purpose:
+    Summary:
         Support configuration overlays without losing default values.
-    Ties To:
+    Ties to other methods:
         Used by load_settings after reading override config files.
     Inputs:
         - base: Base config mapping.
@@ -22,9 +22,9 @@ def merge_configs(
         - location: Fully qualified module and method name.
     Outputs:
         - Merged configuration mapping.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When config structures are incompatible.
     """
     merged: dict[str, object] = dict(base)
@@ -43,18 +43,18 @@ def merge_configs(
 def coerce_dict(value: object, location: str) -> dict[str, object]:
     """Ensure a value is a string keyed dictionary.
 
-    Purpose:
+    Summary:
         Provide safe typing for recursive config merges.
-    Ties To:
+    Ties to other methods:
         Used by merge_configs when merging nested dictionaries.
     Inputs:
         - value: Candidate dictionary value.
         - location: Fully qualified module and method name.
     Outputs:
         - Dictionary with string keys.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the value is not a dictionary.
     """
     error_location = f"{__name__}.coerce_dict"

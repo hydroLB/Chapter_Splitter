@@ -16,9 +16,9 @@ def test_cli_split_smoke(
 ) -> None:
     """Verify the CLI split command completes successfully.
 
-    Purpose:
+    Summary:
         Ensure the CLI split workflow runs end to end.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli.main and split subcommand.
     Inputs:
         - sample_pdf: Fixture providing a deterministic PDF path.
@@ -26,9 +26,9 @@ def test_cli_split_smoke(
         - quiet_logging_override_file: Fixture providing a deterministic logging override TOML.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes output chapter PDFs to disk.
-    Raises:
+    Error handling:
         - None.
     """
     pdf_path = sample_pdf
@@ -55,9 +55,9 @@ def test_cli_split_respects_output_dir(
 ) -> None:
     """Verify the CLI split command can override the output directory.
 
-    Purpose:
+    Summary:
         Allow one-off runs to direct exports without creating an override config TOML file.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli.main split flags and output_dir override.
     Inputs:
         - sample_pdf: Fixture providing a deterministic PDF path.
@@ -65,9 +65,9 @@ def test_cli_split_respects_output_dir(
         - quiet_logging_override_file: Fixture providing a deterministic logging override TOML.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes output chapter PDFs to disk.
-    Raises:
+    Error handling:
         - None.
     """
     pdf_path = sample_pdf
@@ -95,18 +95,18 @@ def test_cli_split_respects_output_dir(
 def test_cli_detect_smoke(tmp_path: Path, quiet_logging_override_file: Path) -> None:
     """Verify the CLI detect command writes a chapters TOML file.
 
-    Purpose:
+    Summary:
         Ensure the CLI detect workflow runs end to end and produces a loadable output file.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.cli.main detect subcommand.
     Inputs:
         - tmp_path: Pytest provided temporary directory.
         - quiet_logging_override_file: Fixture providing a deterministic logging override TOML.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a detection output TOML file to disk.
-    Raises:
+    Error handling:
         - None.
     """
     pdf_path = create_sample_pdf(

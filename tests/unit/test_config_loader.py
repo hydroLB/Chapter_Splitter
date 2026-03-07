@@ -10,17 +10,17 @@ from chapter_splitter.config.loader import load_settings
 def test_load_settings_applies_overrides(tmp_path: Path) -> None:
     """Verify override values are applied on top of defaults.
 
-    Purpose:
+    Summary:
         Ensure load_settings merges overrides with default configuration.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.load_settings.
     Inputs:
         - tmp_path: Pytest provided temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a temporary TOML file.
-    Raises:
+    Error handling:
         - None.
     """
     override_path = tmp_path / "override.toml"

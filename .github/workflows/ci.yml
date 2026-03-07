@@ -29,6 +29,8 @@ jobs:
         run: make boundaries
       - name: Repository hygiene
         run: make repo-hygiene
+      - name: Docstring standards
+        run: make docstrings
       - name: Detect touched UI/workflow files
         id: touched_ui_workflow
         shell: bash

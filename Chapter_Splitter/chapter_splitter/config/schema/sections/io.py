@@ -12,17 +12,17 @@ OutputCollisionPolicy = Literal["error", "overwrite", "suffix"]
 class IOConfig:
     """File and process IO configuration.
 
-    Purpose:
+    Summary:
         Configure IO timeouts, output behavior, and page offsets.
-    Ties To:
+    Ties to other methods:
         Used by PDF loading, writing, and viewer launching.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -43,9 +43,9 @@ class IOConfig:
     ) -> None:
         """Initialize IO configuration.
 
-        Purpose:
+        Summary:
             Define IO behavior including timeouts and output paths.
-        Ties To:
+        Ties to other methods:
             Used by PDF loading, writing, and viewer launch.
         Inputs:
             - open_viewer: Whether to open PDFs in the system viewer.
@@ -65,9 +65,9 @@ class IOConfig:
               labels required to accept an inferred offset.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.open_viewer = open_viewer
@@ -88,17 +88,17 @@ class IOConfig:
     def validate(self, location: str) -> None:
         """Validate IO configuration.
 
-        Purpose:
+        Summary:
             Ensure IO timeouts and output suffixes are valid.
-        Ties To:
+        Ties to other methods:
             Called by Settings.validate before IO is used.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ConfigurationError: When IO settings are invalid.
         """
         error_location = f"{__name__}.IOConfig.validate"

@@ -14,18 +14,18 @@ __all__ = ["ConfigRegistry", "Settings", "load_config"]
 def load_config(config_path: Path | None, location: str) -> Settings:
     """Load settings using the explicit loader.
 
-    Purpose:
+    Summary:
         Provide a compatibility wrapper while keeping configuration loading stateless.
-    Ties To:
+    Ties to other methods:
         Used by app and CLI main functions.
     Inputs:
         - config_path: Optional path to a user config file.
         - location: Fully qualified module and method name.
     Outputs:
         - Settings object.
-    Side Effects:
+    Side effects:
         Reads default and override configuration from disk.
-    Raises:
+    Error handling:
         - ConfigurationError: When settings fail to load.
     """
     return _load_settings(config_path, location)

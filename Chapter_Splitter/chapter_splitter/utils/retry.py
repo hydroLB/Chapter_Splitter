@@ -27,9 +27,9 @@ def retry_with_backoff(
 ) -> T:
     """Retry an action with exponential backoff and jitter.
 
-    Purpose:
+    Summary:
         Provide a centralized retry policy for transient failures.
-    Ties To:
+    Ties to other methods:
         Used by PDF loading and viewer launch operations.
     Inputs:
         - action: Callable to execute.
@@ -43,9 +43,9 @@ def retry_with_backoff(
         - token: Optional cancellation token to stop retries.
     Outputs:
         - Result of the action when successful.
-    Side Effects:
+    Side effects:
         Sleeps between attempts.
-    Raises:
+    Error handling:
         - IoError: When all attempts fail.
     """
     error_location = f"{__name__}.retry_with_backoff"
