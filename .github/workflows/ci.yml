@@ -27,6 +27,8 @@ jobs:
         run: make typecheck
       - name: Import boundaries
         run: make boundaries
+      - name: Repository hygiene
+        run: make repo-hygiene
       - name: Detect touched UI/workflow files
         id: touched_ui_workflow
         shell: bash
@@ -107,6 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gacts/gitleaks@v1

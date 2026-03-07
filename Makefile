@@ -21,7 +21,7 @@ COVERAGE := $(if $(BIN_DIR),$(BIN_DIR)/coverage,coverage)
 BANDIT := $(if $(BIN_DIR),$(BIN_DIR)/bandit,bandit)
 PIP_AUDIT := $(if $(BIN_DIR),$(BIN_DIR)/pip-audit,pip-audit)
 
-.PHONY: help install-dev dev lint typecheck boundaries test security build release-check check
+.PHONY: help install-dev dev lint typecheck boundaries repo-hygiene test security build release-check check
 
 help: ## Show available targets.
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "%-14s %s\n", $$1, $$2}'
@@ -30,6 +30,7 @@ install-dev: ## Install pinned runtime and development dependencies.
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt -r requirements-dev.txt
 	$(PIP) install -e .
+	$(PYTHON) -m pre_commit install --hook-type pre-commit --hook-type pre-push
 
 dev: ## Run the local application workflow (MODE=gui or MODE=split).
 	CHAPTER_SPLITTER_MODE=$(MODE) ./start
@@ -43,6 +44,9 @@ typecheck: ## Run strict static typing checks.
 
 boundaries: ## Enforce module dependency direction rules.
 	$(PYTHON) scripts/check_import_boundaries.py
+
+repo-hygiene: ## Enforce tracked-file hygiene for public recovery-ready repositories.
+	$(PYTHON) scripts/check_repo_hygiene.py
 
 test: ## Run deterministic test suite with coverage threshold.
 	$(COVERAGE) run -m pytest -W error
@@ -59,4 +63,4 @@ build: ## Build source and wheel distributions.
 release-check: ## Enforce release discipline checks.
 	$(PYTHON) scripts/check_release_discipline.py
 
-check: lint typecheck boundaries test security build release-check ## Run all local quality gates.
+check: lint typecheck boundaries repo-hygiene test security build release-check ## Run all local quality gates.
