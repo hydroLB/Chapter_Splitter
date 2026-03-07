@@ -164,12 +164,6 @@ python scripts/profile_split.py
 - Release notes and process: `CHANGELOG.md` and `RELEASE.md`
 - Ownership map: `.github/CODEOWNERS`
 
-## Screenshots
-
-![Main window](README_IMAGES/main_screen.png)
-
-![Export flow](README_IMAGES/export_example.png)
-
 ## Build and Bundle
 
 Build package:

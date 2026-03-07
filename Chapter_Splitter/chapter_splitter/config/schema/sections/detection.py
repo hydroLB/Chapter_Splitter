@@ -98,7 +98,7 @@ class DetectionConfig:
             raise ConfigurationError(
                 format_error_message(
                     error_location,
-                    "detection.toc_auto_scan_max_start_page must be at least 1." f"{context}",
+                    f"detection.toc_auto_scan_max_start_page must be at least 1.{context}",
                 )
             )
         if self.toc_scan_max_pages < 1:
@@ -126,7 +126,7 @@ class DetectionConfig:
             raise ConfigurationError(
                 format_error_message(
                     error_location,
-                    "detection.toc_max_entries must be >= detection.toc_min_entries." f"{context}",
+                    f"detection.toc_max_entries must be >= detection.toc_min_entries.{context}",
                 )
             )
         for pattern in self.toc_entry_regexes:

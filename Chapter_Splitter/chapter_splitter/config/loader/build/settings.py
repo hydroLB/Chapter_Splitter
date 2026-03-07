@@ -410,7 +410,7 @@ def _read_output_collision_policy(
         raise ConfigurationError(
             format_error_message(
                 error_location,
-                "io.output_collision_policy must be one of: error, overwrite, suffix." f"{context}",
+                f"io.output_collision_policy must be one of: error, overwrite, suffix.{context}",
             )
         )
     return cast(OutputCollisionPolicy, value)
@@ -443,7 +443,7 @@ def _read_pdf_preview_fit_mode(
         raise ConfigurationError(
             format_error_message(
                 error_location,
-                "ui.pdf_preview_fit_mode must be one of: page, width, none." f"{context}",
+                f"ui.pdf_preview_fit_mode must be one of: page, width, none.{context}",
             )
         )
     return cast(PdfPreviewFitMode, value)
@@ -476,7 +476,7 @@ def _read_ui_color_mode(
         raise ConfigurationError(
             format_error_message(
                 error_location,
-                "ui.color_mode must be one of: light, dark, auto." f"{context}",
+                f"ui.color_mode must be one of: light, dark, auto.{context}",
             )
         )
     return cast(UIColorMode, value)
