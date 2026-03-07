@@ -77,7 +77,7 @@ def infer_page_offset_from_labels(
         raise PdfProcessingError(
             format_error_message(
                 error_location,
-                "min_sequential_numeric_labels must be at least 1." f"{context}",
+                f"min_sequential_numeric_labels must be at least 1.{context}",
             )
         )
     if not labels:

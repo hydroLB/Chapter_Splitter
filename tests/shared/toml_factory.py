@@ -66,10 +66,7 @@ def write_quiet_logging_override(path: Path, file_path: str = "cli.log") -> Path
             "tests.shared.toml_factory.write_quiet_logging_override requires file_path"
         )
     payload = (
-        "[logging]\n"
-        "console_enabled = false\n"
-        "file_enabled = false\n"
-        f'file_path = "{file_path}"\n'
+        f'[logging]\nconsole_enabled = false\nfile_enabled = false\nfile_path = "{file_path}"\n'
     )
     path.write_text(payload, encoding="utf-8", newline="\n")
     return path

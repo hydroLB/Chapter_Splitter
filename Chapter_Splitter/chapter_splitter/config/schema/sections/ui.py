@@ -587,7 +587,7 @@ class UIConfig:
             raise ConfigurationError(
                 format_error_message(
                     error_location,
-                    "ui.pdf_preview_render_timeout_seconds must be positive." f"{context}",
+                    f"ui.pdf_preview_render_timeout_seconds must be positive.{context}",
                 )
             )
         if self.chapter_review_thumbnail_width < 80:
