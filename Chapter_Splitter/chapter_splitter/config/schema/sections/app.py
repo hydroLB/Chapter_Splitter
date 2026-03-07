@@ -8,26 +8,26 @@ from ....core.errors import ConfigurationError, format_error_message
 class AppConfig:
     """Application metadata configuration.
 
-    Purpose:
+    Summary:
         Define application identity, environment, and correlation settings.
-    Ties To:
+    Ties to other methods:
         Used by logging, UI titles, and CLI output.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
     def __init__(self, title: str, environment: str, correlation_id_prefix: str) -> None:
         """Initialize application configuration.
 
-        Purpose:
+        Summary:
             Store application level metadata and identity settings.
-        Ties To:
+        Ties to other methods:
             Consumed by logging, UI titles, and CLI output.
         Inputs:
             - title: Human readable application title.
@@ -35,9 +35,9 @@ class AppConfig:
             - correlation_id_prefix: Prefix for correlation IDs.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.title = title
@@ -47,17 +47,17 @@ class AppConfig:
     def validate(self, location: str) -> None:
         """Validate application configuration.
 
-        Purpose:
+        Summary:
             Ensure required metadata is present and well formed.
-        Ties To:
+        Ties to other methods:
             Called by Settings.validate before runtime configuration is accepted.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ConfigurationError: When values are empty or invalid.
         """
         error_location = f"{__name__}.AppConfig.validate"

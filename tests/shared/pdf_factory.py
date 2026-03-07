@@ -15,9 +15,9 @@ def create_sample_pdf(
 ) -> Path:
     """Create a sample PDF for tests.
 
-    Purpose:
+    Summary:
         Provide deterministic PDF fixtures for unit and integration tests.
-    Ties To:
+    Ties to other methods:
         Used by tests in unit, integration, and performance suites.
     Inputs:
         - path: Destination path for the PDF.
@@ -25,9 +25,9 @@ def create_sample_pdf(
         - outline_titles: Optional list of outline titles.
     Outputs:
         - Path to the created PDF file.
-    Side Effects:
+    Side effects:
         Writes a PDF file to disk.
-    Raises:
+    Error handling:
         - ValueError: When page_count is less than 1.
     """
     if page_count < 1:

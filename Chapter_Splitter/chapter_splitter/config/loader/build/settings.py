@@ -33,18 +33,18 @@ from .readers import (
 def build_settings(raw: dict[str, object], location: str) -> Settings:
     """Build a fully-typed Settings object from raw config values.
 
-    Purpose:
+    Summary:
         Convert merged TOML dictionaries into strict schema objects consumed by runtime modules.
-    Ties To:
+    Ties to other methods:
         Used by chapter_splitter.config.loader.api.load_settings.
     Inputs:
         - raw: Merged top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - Settings object with all typed sections.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When top-level config data is invalid.
     """
     error_location = f"{__name__}.build_settings"
@@ -81,18 +81,18 @@ def build_settings(raw: dict[str, object], location: str) -> Settings:
 def _build_app_config(raw: dict[str, object], location: str) -> AppConfig:
     """Build AppConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [app] section to a typed AppConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - AppConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When app section keys are missing or invalid.
     """
     section = get_section(raw, "app", location)
@@ -106,18 +106,18 @@ def _build_app_config(raw: dict[str, object], location: str) -> AppConfig:
 def _build_logging_config(raw: dict[str, object], location: str) -> LoggingConfig:
     """Build LoggingConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [logging] section to a typed LoggingConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - LoggingConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When logging section keys are missing or invalid.
     """
     section = get_section(raw, "logging", location)
@@ -135,18 +135,18 @@ def _build_logging_config(raw: dict[str, object], location: str) -> LoggingConfi
 def _build_io_config(raw: dict[str, object], location: str) -> IOConfig:
     """Build IOConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [io] section to a typed IOConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - IOConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When io section keys are missing or invalid.
     """
     section = get_section(raw, "io", location)
@@ -173,18 +173,18 @@ def _build_io_config(raw: dict[str, object], location: str) -> IOConfig:
 def _build_retry_config(raw: dict[str, object], location: str) -> RetryConfig:
     """Build RetryConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [retry] section to a typed RetryConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - RetryConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When retry section keys are missing or invalid.
     """
     section = get_section(raw, "retry", location)
@@ -199,18 +199,18 @@ def _build_retry_config(raw: dict[str, object], location: str) -> RetryConfig:
 def _build_ui_config(raw: dict[str, object], location: str) -> UIConfig:
     """Build UIConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [ui] section to a typed UIConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - UIConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When ui section keys are missing or invalid.
     """
     section = get_section(raw, "ui", location)
@@ -299,18 +299,18 @@ def _build_ui_config(raw: dict[str, object], location: str) -> UIConfig:
 def _build_validation_config(raw: dict[str, object], location: str) -> ValidationConfig:
     """Build ValidationConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [validation] section to a typed ValidationConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - ValidationConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When validation section keys are missing or invalid.
     """
     section = get_section(raw, "validation", location)
@@ -325,18 +325,18 @@ def _build_validation_config(raw: dict[str, object], location: str) -> Validatio
 def _build_detection_config(raw: dict[str, object], location: str) -> DetectionConfig:
     """Build DetectionConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [detection] section to a typed DetectionConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - DetectionConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When detection section keys are missing or invalid.
     """
     section = get_section(raw, "detection", location)
@@ -362,18 +362,18 @@ def _build_detection_config(raw: dict[str, object], location: str) -> DetectionC
 def _build_performance_config(raw: dict[str, object], location: str) -> PerformanceConfig:
     """Build PerformanceConfig from raw section values.
 
-    Purpose:
+    Summary:
         Convert the [performance] section to a typed PerformanceConfig.
-    Ties To:
+    Ties to other methods:
         Used by build_settings.
     Inputs:
         - raw: Top-level config mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - PerformanceConfig instance.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When performance section keys are missing or invalid.
     """
     section = get_section(raw, "performance", location)
@@ -389,18 +389,18 @@ def _read_output_collision_policy(
 ) -> OutputCollisionPolicy:
     """Read and validate io.output_collision_policy.
 
-    Purpose:
+    Summary:
         Keep literal-typed policy parsing centralized for clearer error messages.
-    Ties To:
+    Ties to other methods:
         Used by _build_io_config.
     Inputs:
         - section: [io] section mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - OutputCollisionPolicy literal value.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the value is not one of the supported policies.
     """
     error_location = f"{__name__}._read_output_collision_policy"
@@ -422,18 +422,18 @@ def _read_pdf_preview_fit_mode(
 ) -> PdfPreviewFitMode:
     """Read and validate ui.pdf_preview_fit_mode.
 
-    Purpose:
+    Summary:
         Keep literal-typed fit-mode parsing centralized for clearer error messages.
-    Ties To:
+    Ties to other methods:
         Used by _build_ui_config.
     Inputs:
         - section: [ui] section mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - PdfPreviewFitMode literal value.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the value is not one of the supported fit modes.
     """
     error_location = f"{__name__}._read_pdf_preview_fit_mode"
@@ -455,18 +455,18 @@ def _read_ui_color_mode(
 ) -> UIColorMode:
     """Read and validate ui.color_mode.
 
-    Purpose:
+    Summary:
         Keep literal-typed color-mode parsing centralized for clearer error messages.
-    Ties To:
+    Ties to other methods:
         Used by _build_ui_config.
     Inputs:
         - section: [ui] section mapping.
         - location: Fully qualified module and method name.
     Outputs:
         - UIColorMode literal value.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - ConfigurationError: When the value is not one of the supported color modes.
     """
     error_location = f"{__name__}._read_ui_color_mode"

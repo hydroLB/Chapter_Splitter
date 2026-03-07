@@ -13,18 +13,18 @@ from ....utils.timing import Deadline
 def read_toml_file(path: Path, location: str) -> dict[str, object]:
     """Read and parse a TOML file into a dictionary.
 
-    Purpose:
+    Summary:
         Centralize TOML parsing with consistent error handling.
-    Ties To:
+    Ties to other methods:
         Used for default settings and user overrides.
     Inputs:
         - path: TOML file path.
         - location: Fully qualified module and method name.
     Outputs:
         - Parsed TOML content as a dictionary.
-    Side Effects:
+    Side effects:
         Reads the file from disk.
-    Raises:
+    Error handling:
         - ConfigurationError: When the file cannot be read or parsed.
     """
     error_location = f"{__name__}.read_toml_file"
@@ -56,17 +56,17 @@ def read_toml_file(path: Path, location: str) -> dict[str, object]:
 def config_read_deadline(location: str) -> Deadline:
     """Return a deadline for config file reads.
 
-    Purpose:
+    Summary:
         Provide a tunable timeout for configuration file IO.
-    Ties To:
+    Ties to other methods:
         Used by read_toml_file when reading settings files.
     Inputs:
         - location: Fully qualified module and method name.
     Outputs:
         - Deadline instance for config reads.
-    Side Effects:
+    Side effects:
         Reads environment variables for overrides.
-    Raises:
+    Error handling:
         - ConfigurationError: When the timeout value is invalid.
     """
     error_location = f"{__name__}.config_read_deadline"

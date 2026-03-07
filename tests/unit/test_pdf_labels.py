@@ -18,17 +18,17 @@ class _ReaderWithLabels:
 def test_extract_page_labels_returns_none_when_missing() -> None:
     """Verify missing labels return None.
 
-    Purpose:
+    Summary:
         Allow callers to fall back to numeric page numbers.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.io.labels.extract_page_labels.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = cast(PdfReader, _ReaderWithLabels(labels=None))
@@ -38,17 +38,17 @@ def test_extract_page_labels_returns_none_when_missing() -> None:
 def test_extract_page_labels_rejects_non_string_labels() -> None:
     """Verify non-string labels are rejected.
 
-    Purpose:
+    Summary:
         Keep label mapping deterministic and safe.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.io.labels.extract_page_labels.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = cast(PdfReader, _ReaderWithLabels(labels=[1, 2]))
@@ -59,17 +59,17 @@ def test_extract_page_labels_rejects_non_string_labels() -> None:
 def test_extract_page_labels_requires_attribute() -> None:
     """Verify readers without label support raise a processing error.
 
-    Purpose:
+    Summary:
         Fail with a clear error when a reader implementation is incompatible.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.io.labels.extract_page_labels.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     reader = cast(PdfReader, object())
@@ -80,17 +80,17 @@ def test_extract_page_labels_requires_attribute() -> None:
 def test_infer_page_offset_from_labels_returns_offset_when_numeric_run_exists() -> None:
     """Verify offset inference finds the start of numeric page labels.
 
-    Purpose:
+    Summary:
         Reduce user configuration friction when PDFs expose page label metadata.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     labels = ["i", "ii", "iii", "1", "2", "3", "4"]
@@ -107,17 +107,17 @@ def test_infer_page_offset_from_labels_returns_offset_when_numeric_run_exists() 
 def test_infer_page_offset_from_labels_returns_none_when_run_is_too_short() -> None:
     """Verify inference respects the sequential run threshold.
 
-    Purpose:
+    Summary:
         Avoid false positives from isolated numeric labels.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     labels = ["x", "1", "x", "2"]
@@ -134,17 +134,17 @@ def test_infer_page_offset_from_labels_returns_none_when_run_is_too_short() -> N
 def test_infer_page_offset_from_labels_rejects_invalid_threshold() -> None:
     """Verify inference rejects invalid thresholds.
 
-    Purpose:
+    Summary:
         Keep the heuristic deterministic and safe under strict typing.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     with pytest.raises(PdfProcessingError):

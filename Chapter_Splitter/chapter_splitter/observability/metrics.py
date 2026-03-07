@@ -11,17 +11,17 @@ from typing import Protocol
 class MetricsSink(Protocol):
     """Interface for application metrics emitters.
 
-    Purpose:
+    Summary:
         Provide a small, dependency-free contract for counters and timing observations.
-    Ties To:
+    Ties to other methods:
         Used by app and CLI boundaries for instrumentation hooks.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Depends on implementation.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -57,34 +57,34 @@ class MetricsSink(Protocol):
 class NoOpMetrics:
     """No-op metrics sink used as the default instrumentation backend.
 
-    Purpose:
+    Summary:
         Keep instrumentation calls safe and deterministic when no metrics backend is configured.
-    Ties To:
+    Ties to other methods:
         Used by app and CLI boundaries as the default metrics sink.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
     def __init__(self, monotonic: Callable[[], float] | None = None) -> None:
         """Initialize the no-op sink with an injectable monotonic clock.
 
-        Purpose:
+        Summary:
             Allow deterministic timing tests without introducing external dependencies.
-        Ties To:
+        Ties to other methods:
             Used by timer for elapsed time calculation.
         Inputs:
             - monotonic: Optional monotonic clock function.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Stores the monotonic callback.
-        Raises:
+        Error handling:
             - None.
         """
         self._monotonic = monotonic or time.monotonic
@@ -98,9 +98,9 @@ class NoOpMetrics:
     ) -> None:
         """Increment a counter metric.
 
-        Purpose:
+        Summary:
             Provide a compatible no-op counter API.
-        Ties To:
+        Ties to other methods:
             Called by app and CLI instrumentation hooks.
         Inputs:
             - metric: Metric name.
@@ -108,9 +108,9 @@ class NoOpMetrics:
             - tags: Optional key-value metric tags.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         _ = (metric, value, tags)
@@ -124,9 +124,9 @@ class NoOpMetrics:
     ) -> None:
         """Record a numeric observation.
 
-        Purpose:
+        Summary:
             Provide a compatible no-op observation API.
-        Ties To:
+        Ties to other methods:
             Called by timer and explicit observation hooks.
         Inputs:
             - metric: Metric name.
@@ -134,9 +134,9 @@ class NoOpMetrics:
             - tags: Optional key-value metric tags.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         _ = (metric, value, tags)
@@ -150,18 +150,18 @@ class NoOpMetrics:
     ) -> Iterator[None]:
         """Measure elapsed time and forward it to observe.
 
-        Purpose:
+        Summary:
             Keep timing instrumentation simple and backend-agnostic.
-        Ties To:
+        Ties to other methods:
             Used by app and CLI boundaries around command execution.
         Inputs:
             - metric: Metric name.
             - tags: Optional key-value metric tags.
         Outputs:
             - Context manager yielding control to the caller block.
-        Side Effects:
+        Side effects:
             Emits an observation through observe.
-        Raises:
+        Error handling:
             - None.
         """
         start = self._monotonic()

@@ -11,34 +11,34 @@ from ..core.errors import CancellationError, format_error_message
 class Deadline:
     """Track an operation deadline and enforce timeouts.
 
-    Purpose:
+    Summary:
         Provide timeout tracking for IO and processing operations.
-    Ties To:
+    Ties to other methods:
         Used by PDF loading, splitting, and config timeouts.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
     def __init__(self, timeout_seconds: float) -> None:
         """Initialize a deadline timer.
 
-        Purpose:
+        Summary:
             Track elapsed time for long running operations.
-        Ties To:
+        Ties to other methods:
             Used by PDF processing and IO operations.
         Inputs:
             - timeout_seconds: Maximum allowed duration.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Captures the start time for the deadline.
-        Raises:
+        Error handling:
             - CancellationError: When timeout_seconds is not positive.
         """
         if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
@@ -54,17 +54,17 @@ class Deadline:
     def check(self, location: str) -> None:
         """Raise when the deadline has been exceeded.
 
-        Purpose:
+        Summary:
             Enforce timeouts consistently across IO and processing loops.
-        Ties To:
+        Ties to other methods:
             Called by PDF splitting and outline detection.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - CancellationError: When the deadline has been exceeded.
         """
         error_location = f"{__name__}.Deadline.check"
@@ -77,17 +77,17 @@ class Deadline:
     def elapsed_seconds(self) -> float:
         """Return elapsed time since the deadline started.
 
-        Purpose:
+        Summary:
             Provide visibility into elapsed time for diagnostics.
-        Ties To:
+        Ties to other methods:
             Used by benchmark scripts and debug logging.
         Inputs:
             - None.
         Outputs:
             - Elapsed time in seconds.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         return time.monotonic() - self._start_time

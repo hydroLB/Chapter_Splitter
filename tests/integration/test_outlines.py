@@ -13,17 +13,17 @@ from chapter_splitter.utils import Deadline
 def test_detect_chapters_from_outlines(outlined_pdf: Path) -> None:
     """Verify outline detection returns chapters.
 
-    Purpose:
+    Summary:
         Ensure detect_chapters_from_outlines returns chapter definitions.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.detection.outlines.detect_chapters_from_outlines.
     Inputs:
         - outlined_pdf: Fixture providing a PDF with outlines.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Reads the PDF file from disk.
-    Raises:
+    Error handling:
         - None.
     """
     settings = load_settings(None, "tests.integration.test_outlines")

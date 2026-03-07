@@ -21,7 +21,7 @@ COVERAGE := $(if $(BIN_DIR),$(BIN_DIR)/coverage,coverage)
 BANDIT := $(if $(BIN_DIR),$(BIN_DIR)/bandit,bandit)
 PIP_AUDIT := $(if $(BIN_DIR),$(BIN_DIR)/pip-audit,pip-audit)
 
-.PHONY: help install-dev dev lint typecheck boundaries repo-hygiene test security build release-check check
+.PHONY: help install-dev dev lint typecheck boundaries repo-hygiene docstrings test security build release-check check
 
 help: ## Show available targets.
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "%-14s %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ boundaries: ## Enforce module dependency direction rules.
 repo-hygiene: ## Enforce tracked-file hygiene for public recovery-ready repositories.
 	$(PYTHON) scripts/check_repo_hygiene.py
 
+docstrings: ## Enforce standardized Python docstring headings.
+	$(PYTHON) scripts/check_docstring_standards.py
+
 test: ## Run deterministic test suite with coverage threshold.
 	$(COVERAGE) run -m pytest -W error
 	$(COVERAGE) report --fail-under=90
@@ -63,4 +66,4 @@ build: ## Build source and wheel distributions.
 release-check: ## Enforce release discipline checks.
 	$(PYTHON) scripts/check_release_discipline.py
 
-check: lint typecheck boundaries repo-hygiene test security build release-check ## Run all local quality gates.
+check: lint typecheck boundaries repo-hygiene docstrings test security build release-check ## Run all local quality gates.

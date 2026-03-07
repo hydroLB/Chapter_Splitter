@@ -14,17 +14,17 @@ UIColorMode = Literal["light", "dark", "auto"]
 class UIConfig:
     """GUI configuration.
 
-    Purpose:
+    Summary:
         Centralize tunable UI labels, layout, and behavior settings.
-    Ties To:
+    Ties to other methods:
         Used by Tk window builders, dialogs, and widgets.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -97,9 +97,9 @@ class UIConfig:
     ) -> None:
         """Initialize UI configuration.
 
-        Purpose:
+        Summary:
             Provide window sizing, limits, labels, and behavior for the GUI.
-        Ties To:
+        Ties to other methods:
             Used by chapter window creation and grid layout logic.
         Inputs:
             - window_width: Default window width.
@@ -167,9 +167,9 @@ class UIConfig:
             - auto_detect_on_open: Whether to run Auto Detect automatically after a PDF is loaded.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.window_width = window_width
@@ -240,17 +240,17 @@ class UIConfig:
     def validate(self, location: str) -> None:
         """Validate UI configuration.
 
-        Purpose:
+        Summary:
             Ensure window sizing and row limits are valid.
-        Ties To:
+        Ties to other methods:
             Called by Settings.validate before UI layout is used.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ConfigurationError: When UI settings are invalid.
         """
         error_location = f"{__name__}.UIConfig.validate"

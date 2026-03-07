@@ -31,17 +31,17 @@ from chapter_splitter.core import ConfigurationError
 def test_coerce_dict_rejects_non_dict() -> None:
     """Verify deep-merge rejects non-dictionary nodes.
 
-    Purpose:
+    Summary:
         Ensure type safety for recursive merges.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.merge.deep_merge.coerce_dict.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     with pytest.raises(ConfigurationError):
@@ -51,17 +51,17 @@ def test_coerce_dict_rejects_non_dict() -> None:
 def test_resolve_env_path_returns_none_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify environment override is optional.
 
-    Purpose:
+    Summary:
         Avoid forcing users to set CHAPTER_SPLITTER_CONFIG.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.sources.resolve_env_path.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Modifies environment variables for the duration of the test.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.delenv("CHAPTER_SPLITTER_CONFIG", raising=False)
@@ -71,17 +71,17 @@ def test_resolve_env_path_returns_none_when_unset(monkeypatch: pytest.MonkeyPatc
 def test_resolve_env_path_rejects_missing_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify environment override fails fast when the file does not exist.
 
-    Purpose:
+    Summary:
         Provide immediate, actionable feedback for misconfiguration.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.sources.resolve_env_path.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Modifies environment variables for the duration of the test.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setenv("CHAPTER_SPLITTER_CONFIG", "/does/not/exist.toml")
@@ -92,17 +92,17 @@ def test_resolve_env_path_rejects_missing_file(monkeypatch: pytest.MonkeyPatch) 
 def test_read_default_settings_handles_missing_resource(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify missing packaged defaults produce a configuration error.
 
-    Purpose:
+    Summary:
         Ensure the loader fails with a clear message when package data is missing.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.sources.read_default_settings.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Patches importlib.resources lookup.
-    Raises:
+    Error handling:
         - None.
     """
     import importlib.resources as importlib_resources
@@ -118,17 +118,17 @@ def test_read_default_settings_handles_missing_resource(monkeypatch: pytest.Monk
 def test_config_read_deadline_rejects_invalid_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify config read deadline validates environment overrides.
 
-    Purpose:
+    Summary:
         Prevent invalid timeout values from silently breaking IO bounds.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.toml.reader.config_read_deadline.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Modifies environment variables for the duration of the test.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setenv("CHAPTER_SPLITTER_CONFIG_TIMEOUT_SECONDS", "not-a-float")
@@ -139,17 +139,17 @@ def test_config_read_deadline_rejects_invalid_timeout(monkeypatch: pytest.Monkey
 def test_config_read_deadline_rejects_non_positive_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify config read deadline rejects non-positive values.
 
-    Purpose:
+    Summary:
         Avoid timeouts that would immediately cancel all config IO.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.toml.reader.config_read_deadline.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Modifies environment variables for the duration of the test.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setenv("CHAPTER_SPLITTER_CONFIG_TIMEOUT_SECONDS", "-1")
@@ -160,17 +160,17 @@ def test_config_read_deadline_rejects_non_positive_timeout(monkeypatch: pytest.M
 def test_read_toml_file_rejects_invalid_toml(tmp_path: Path) -> None:
     """Verify invalid TOML returns a configuration error.
 
-    Purpose:
+    Summary:
         Ensure errors are consistently surfaced at the loader boundary.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.toml.reader.read_toml_file.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a temporary file.
-    Raises:
+    Error handling:
         - None.
     """
     path = tmp_path / "bad.toml"
@@ -182,17 +182,17 @@ def test_read_toml_file_rejects_invalid_toml(tmp_path: Path) -> None:
 def test_read_toml_file_rejects_non_utf8_bytes(tmp_path: Path) -> None:
     """Verify non-UTF8 config files fail with a configuration error.
 
-    Purpose:
+    Summary:
         Avoid undefined behavior when config files contain invalid encoding.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.toml.reader.read_toml_file.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes a temporary file with invalid bytes.
-    Raises:
+    Error handling:
         - None.
     """
     path = tmp_path / "bytes.toml"
@@ -204,17 +204,17 @@ def test_read_toml_file_rejects_non_utf8_bytes(tmp_path: Path) -> None:
 def test_build_readers_validate_types() -> None:
     """Verify typed readers reject unexpected values.
 
-    Purpose:
+    Summary:
         Ensure raw config parsing stays strict under mypy and at runtime.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.build.readers.*.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     raw: dict[str, object] = {"section": {"name": "ok", "flag": True, "count": 3, "ratio": 0.25}}
@@ -235,17 +235,17 @@ def test_build_readers_validate_types() -> None:
 def test_build_readers_cover_error_branches() -> None:
     """Verify typed readers reject missing, blank, and malformed values.
 
-    Purpose:
+    Summary:
         Cover branch-level error handling in reader helpers and keep loader diagnostics stable.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.build.readers.get_section and read_* helpers.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     location = "tests.unit.test_config_loader_components"
@@ -296,17 +296,17 @@ def test_build_readers_cover_error_branches() -> None:
 def test_build_settings_rejects_invalid_root_and_literal_values() -> None:
     """Verify settings builder enforces root type and literal enums.
 
-    Purpose:
+    Summary:
         Keep config builder failure paths deterministic and actionable.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.build.settings.build_settings and helper readers.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Loads packaged default settings and mutates copied dictionaries.
-    Raises:
+    Error handling:
         - None.
     """
     location = "tests.unit.test_config_loader_components"
@@ -337,17 +337,17 @@ def test_build_settings_rejects_invalid_root_and_literal_values() -> None:
 def test_config_registry_get_requires_load() -> None:
     """Verify registry enforces load-before-get usage.
 
-    Purpose:
+    Summary:
         Prevent accidental use of configuration before initialization.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.registry.ConfigRegistry.get.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     registry = ConfigRegistry()
@@ -358,17 +358,17 @@ def test_config_registry_get_requires_load() -> None:
 def test_config_registry_load_and_get_round_trip() -> None:
     """Verify registry returns the same settings instance after load.
 
-    Purpose:
+    Summary:
         Ensure configuration is a single source of truth after loading.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.registry.ConfigRegistry.load and .get.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Loads default settings from packaged data.
-    Raises:
+    Error handling:
         - None.
     """
     registry = ConfigRegistry()
@@ -381,17 +381,17 @@ def test_config_read_deadline_integration_raises_cancellation(
 ) -> None:
     """Verify cancellation error paths are surfaced as configuration errors.
 
-    Purpose:
+    Summary:
         Ensure internal cancellation maps to a stable config-loader boundary error.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.loader.toml.reader.config_read_deadline.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Modifies environment variables for the duration of the test.
-    Raises:
+    Error handling:
         - None.
     """
     monkeypatch.setenv("CHAPTER_SPLITTER_CONFIG_TIMEOUT_SECONDS", "0")
@@ -404,17 +404,17 @@ def test_load_config_is_stateless_and_delegates_to_loader(
 ) -> None:
     """Verify module-level load_config no longer depends on global mutable state.
 
-    Purpose:
+    Summary:
         Lock in explicit loader delegation so configuration state stays boundary-local.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.load_config.
     Inputs:
         - monkeypatch: Pytest monkeypatch fixture.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Monkeypatches the config loader wrapper.
-    Raises:
+    Error handling:
         - None.
     """
     calls: list[tuple[Path | None, str]] = []
@@ -442,17 +442,17 @@ def test_load_config_is_stateless_and_delegates_to_loader(
 def test_registry_module_has_no_global_singleton_state() -> None:
     """Verify the registry module does not expose hidden global mutable singleton state.
 
-    Purpose:
+    Summary:
         Prevent regressions that reintroduce process-global config state.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.registry module contract.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     config_registry_module = importlib.import_module("chapter_splitter.config.registry")

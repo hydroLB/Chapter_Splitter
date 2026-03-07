@@ -11,17 +11,17 @@ from ....core.errors import ConfigurationError, format_error_message
 class LoggingConfig:
     """Structured logging configuration.
 
-    Purpose:
+    Summary:
         Control log levels, outputs, and redaction behavior.
-    Ties To:
+    Ties to other methods:
         Consumed by observability logging setup.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -37,9 +37,9 @@ class LoggingConfig:
     ) -> None:
         """Initialize logging configuration.
 
-        Purpose:
+        Summary:
             Define structured logging output and redaction behavior.
-        Ties To:
+        Ties to other methods:
             Used by observability logging setup.
         Inputs:
             - level: Logging level name.
@@ -51,9 +51,9 @@ class LoggingConfig:
             - redact_values: Substrings to redact from log messages.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.level = level
@@ -67,17 +67,17 @@ class LoggingConfig:
     def validate(self, location: str) -> None:
         """Validate logging configuration.
 
-        Purpose:
+        Summary:
             Ensure logging settings are coherent and safe.
-        Ties To:
+        Ties to other methods:
             Called by Settings.validate prior to logging setup.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ConfigurationError: When logging settings are invalid.
         """
         error_location = f"{__name__}.LoggingConfig.validate"

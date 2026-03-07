@@ -8,17 +8,17 @@ from ....core.errors import ConfigurationError, format_error_message
 class RetryConfig:
     """Retry policy configuration.
 
-    Purpose:
+    Summary:
         Define retry limits and backoff settings for transient failures.
-    Ties To:
+    Ties to other methods:
         Used by retry utilities and IO workflows.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -31,9 +31,9 @@ class RetryConfig:
     ) -> None:
         """Initialize retry configuration.
 
-        Purpose:
+        Summary:
             Define exponential backoff behavior for transient IO errors.
-        Ties To:
+        Ties to other methods:
             Used by retry helpers in IO and PDF loading.
         Inputs:
             - max_attempts: Maximum retry attempts.
@@ -42,9 +42,9 @@ class RetryConfig:
             - jitter_ratio: Jitter ratio applied to delays.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - None.
         """
         self.max_attempts = max_attempts
@@ -55,17 +55,17 @@ class RetryConfig:
     def validate(self, location: str) -> None:
         """Validate retry configuration.
 
-        Purpose:
+        Summary:
             Ensure retry settings remain within reasonable bounds.
-        Ties To:
+        Ties to other methods:
             Called by Settings.validate before retry policy is used.
         Inputs:
             - location: Fully qualified module and method name.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             None.
-        Raises:
+        Error handling:
             - ConfigurationError: When retry settings are invalid.
         """
         error_location = f"{__name__}.RetryConfig.validate"

@@ -22,17 +22,17 @@ BASELINE_PATH = Path("benchmarks/baseline.json")
 def test_split_performance_budget(tmp_path: Path) -> None:
     """Verify split performance stays within the baseline budget.
 
-    Purpose:
+    Summary:
         Guard against performance regressions in chapter splitting.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.splitting.splitter.split_pdf_into_chapters.
     Inputs:
         - tmp_path: Pytest provided temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Writes output files during benchmark execution.
-    Raises:
+    Error handling:
         - AssertionError: When the benchmark exceeds the baseline.
     """
     settings = load_settings(None, "tests.performance.test_benchmarks")
@@ -63,17 +63,17 @@ def test_split_performance_budget(tmp_path: Path) -> None:
     def _run_once() -> None:
         """Run a single split benchmark iteration.
 
-        Purpose:
+        Summary:
             Execute the split operation once and record elapsed time.
-        Ties To:
+        Ties to other methods:
             Used by test_split_performance_budget.
         Inputs:
             - None.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Writes and deletes output files.
-        Raises:
+        Error handling:
             - None.
         """
         deadline = Deadline(settings.io.operation_timeout_seconds)
@@ -104,17 +104,17 @@ def test_split_performance_budget(tmp_path: Path) -> None:
     def _record_timing(value: float) -> None:
         """Record a timing measurement.
 
-        Purpose:
+        Summary:
             Append a timing value to the local timings list.
-        Ties To:
+        Ties to other methods:
             Used by test_split_performance_budget.
         Inputs:
             - value: Timing value in seconds.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Appends to the timings list.
-        Raises:
+        Error handling:
             - None.
         """
         timings.append(value)
@@ -132,17 +132,17 @@ def test_split_performance_budget(tmp_path: Path) -> None:
 def test_outline_detection_performance_budget(tmp_path: Path) -> None:
     """Verify outline detection performance stays within baseline budget.
 
-    Purpose:
+    Summary:
         Guard against regressions in outline detection.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.pdf.detection.outlines.detect_chapters_from_outlines.
     Inputs:
         - tmp_path: Pytest provided temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Reads the PDF file during benchmark execution.
-    Raises:
+    Error handling:
         - AssertionError: When the benchmark exceeds the baseline.
     """
     settings = load_settings(None, "tests.performance.test_benchmarks")
@@ -179,17 +179,17 @@ def test_outline_detection_performance_budget(tmp_path: Path) -> None:
 def _load_baseline(path: Path) -> dict[str, float]:
     """Load benchmark baseline values from disk.
 
-    Purpose:
+    Summary:
         Provide benchmark baselines for performance tests.
-    Ties To:
+    Ties to other methods:
         Used by performance tests in this module.
     Inputs:
         - path: Path to the baseline JSON file.
     Outputs:
         - Mapping of baseline metrics to float values.
-    Side Effects:
+    Side effects:
         Reads the baseline JSON file from disk.
-    Raises:
+    Error handling:
         - RuntimeError: When the baseline file cannot be read.
     """
     try:

@@ -168,17 +168,17 @@ def _valid_ui() -> UIConfig:
 def test_schema_validates_happy_path(tmp_path: Path) -> None:
     """Verify config sections accept valid settings.
 
-    Purpose:
+    Summary:
         Ensure baseline configs pass validation as a sanity check.
-    Ties To:
+    Ties to other methods:
         Covers *.validate methods in chapter_splitter.config.schema sections.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     _valid_app().validate("tests.unit.test_config_schema_validation")
@@ -194,17 +194,17 @@ def test_schema_validates_happy_path(tmp_path: Path) -> None:
 def test_ui_config_validation_catches_all_key_invariants() -> None:
     """Verify UIConfig emits actionable errors for invalid parameters.
 
-    Purpose:
+    Summary:
         Ensure each invariant check stays covered and debuggable.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.schema.sections.ui.UIConfig.validate.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -247,17 +247,17 @@ def test_ui_config_validation_catches_all_key_invariants() -> None:
 def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
     """Verify validators reject representative invalid values.
 
-    Purpose:
+    Summary:
         Increase coverage for error branches and keep messages actionable.
-    Ties To:
+    Ties to other methods:
         Covers validate methods across non-UI config sections.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     with pytest.raises(ConfigurationError):
@@ -312,17 +312,17 @@ def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
 def test_ui_config_validation_catches_preview_and_prompt_invariants() -> None:
     """Verify UIConfig validates prompt and PDF preview-specific invariants.
 
-    Purpose:
+    Summary:
         Cover remaining UI validation branches for prompt/preview constraints.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.schema.sections.ui.UIConfig.validate.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -358,17 +358,17 @@ def test_ui_config_validation_catches_preview_and_prompt_invariants() -> None:
 def test_ui_config_allows_optional_prompt_fields_when_flags_are_disabled() -> None:
     """Verify optional prompt fields can be empty when their feature flags are disabled.
 
-    Purpose:
+    Summary:
         Cover non-error branches where optional prompt fields are intentionally skipped.
-    Ties To:
+    Ties to other methods:
         Covers conditional branches in chapter_splitter.config.schema.sections.ui.UIConfig.validate.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     cfg = _valid_ui()
@@ -386,17 +386,17 @@ def test_ui_config_allows_optional_prompt_fields_when_flags_are_disabled() -> No
 def test_detection_config_validation_catches_remaining_error_branches() -> None:
     """Verify DetectionConfig validation rejects malformed detection settings.
 
-    Purpose:
+    Summary:
         Cover remaining detection validation branches including regex parsing failures.
-    Ties To:
+    Ties to other methods:
         Covers chapter_splitter.config.schema.sections.detection.DetectionConfig.validate.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Compiles regex patterns during validation.
-    Raises:
+    Error handling:
         - None.
     """
 
@@ -422,17 +422,17 @@ def test_detection_config_validation_catches_remaining_error_branches() -> None:
 def test_other_section_validators_cover_remaining_branches(tmp_path: Path) -> None:
     """Verify section validators reject all remaining invalid parameter branches.
 
-    Purpose:
+    Summary:
         Raise coverage for App/IO/Retry/Performance validators without altering behavior.
-    Ties To:
+    Ties to other methods:
         Covers validate methods in app/io/retry/performance config sections.
     Inputs:
         - tmp_path: Pytest temporary directory.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
     with pytest.raises(ConfigurationError):

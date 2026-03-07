@@ -173,9 +173,9 @@ def open_in_default_viewer(
 ) -> None:
     """Open a PDF in the system default viewer.
 
-    Purpose:
+    Summary:
         Provide a consistent viewer launch with timeouts and rate limiting.
-    Ties To:
+    Ties to other methods:
         Called by UI workflows after a PDF is selected.
     Inputs:
         - pdf_path: Path to the PDF file.
@@ -184,9 +184,9 @@ def open_in_default_viewer(
         - location: Fully qualified module and method name.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         Launches the system PDF viewer.
-    Raises:
+    Error handling:
         - IoError: When the viewer cannot be launched.
     """
     open_path_in_default_viewer(pdf_path, timeout_seconds, rate_limiter, location)

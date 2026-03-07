@@ -10,34 +10,34 @@ from ..core.errors import ValidationError, format_error_message
 class RateLimiter:
     """Simple time based rate limiter.
 
-    Purpose:
+    Summary:
         Throttle repeated actions to avoid UI or IO overload.
-    Ties To:
+    Ties to other methods:
         Used by UI action handlers and viewer launch logic.
     Inputs:
         - None.
     Outputs:
         - None.
-    Side Effects:
+    Side effects:
         None.
-    Raises:
+    Error handling:
         - None.
     """
 
     def __init__(self, min_interval_seconds: float) -> None:
         """Initialize the rate limiter.
 
-        Purpose:
+        Summary:
             Limit how often an action can run to avoid UI or IO overload.
-        Ties To:
+        Ties to other methods:
             Used by UI actions and viewer launch logic.
         Inputs:
             - min_interval_seconds: Minimum interval between actions.
         Outputs:
             - None.
-        Side Effects:
+        Side effects:
             Stores the initial last action time.
-        Raises:
+        Error handling:
             - ValidationError: When the interval is negative.
         """
         if min_interval_seconds < 0:
@@ -53,17 +53,17 @@ class RateLimiter:
     def allow(self) -> bool:
         """Return whether a new action is allowed right now.
 
-        Purpose:
+        Summary:
             Enforce a minimum interval between repeated actions.
-        Ties To:
+        Ties to other methods:
             Called before auto detect and export actions in the UI.
         Inputs:
             - None.
         Outputs:
             - True when the action is allowed.
-        Side Effects:
+        Side effects:
             Updates the last action time when allowed.
-        Raises:
+        Error handling:
             - None.
         """
         now = time.monotonic()
