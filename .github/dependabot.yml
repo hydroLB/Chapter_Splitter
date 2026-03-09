@@ -3,40 +3,36 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "06:00"
       timezone: "UTC"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
     labels:
       - "dependencies"
-      - "security"
     commit-message:
       prefix: "deps"
+    allow:
+      - dependency-name: "pypdf"
     groups:
       python-runtime:
         patterns:
-          - "pypdf"
-          - "PySide6"
-      python-dev-tools:
-        patterns:
-          - "ruff"
-          - "mypy"
-          - "pytest"
-          - "coverage"
-          - "pip-audit"
-          - "bandit"
-          - "pre-commit"
+          - "*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "06:30"
       timezone: "UTC"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
     labels:
       - "dependencies"
-      - "security"
     commit-message:
       prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

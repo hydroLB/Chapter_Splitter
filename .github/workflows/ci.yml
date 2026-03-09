@@ -27,6 +27,8 @@ jobs:
         run: make typecheck
       - name: Import boundaries
         run: make boundaries
+      - name: Dependency policy
+        run: make deps-policy
       - name: Repository hygiene
         run: make repo-hygiene
       - name: Docstring standards

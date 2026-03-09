@@ -10,6 +10,8 @@ from pathlib import Path
 REQUIRED_FILES: tuple[str, ...] = (
     ".env.example",
     ".gitignore",
+    ".githooks/pre-commit",
+    ".githooks/pre-push",
     ".pre-commit-config.yaml",
     ".python-version",
     "CONTRIBUTING.md",
@@ -17,6 +19,7 @@ REQUIRED_FILES: tuple[str, ...] = (
     "Makefile",
     "README.MD",
     "SECURITY.md",
+    "scripts/check_dependency_policy.py",
     "pyproject.toml",
     "requirements-dev.lock",
     "requirements.lock",

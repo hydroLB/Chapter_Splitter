@@ -90,7 +90,6 @@ node_modules/
 # Local tooling and workspace-specific artifacts
 .codex/
 .local/
-.githooks/
 .repowizard/
 .repowizard/legacy-hooks*
 .repo/
