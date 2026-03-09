@@ -14,6 +14,7 @@ endif
 
 MODE ?= gui
 PYTHON ?= $(if $(BIN_DIR),$(BIN_DIR)/python,python3)
+export PYTHONPATH := $(CURDIR)/Chapter_Splitter$(if $(PYTHONPATH),:$(PYTHONPATH))
 PIP := $(PYTHON) -m pip
 RUFF := $(PYTHON) -m ruff
 MYPY := $(PYTHON) -m mypy

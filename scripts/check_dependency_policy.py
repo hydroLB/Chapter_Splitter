@@ -37,11 +37,7 @@ def _read_raw_non_comment_lines(path: Path) -> list[str]:
 
 def _assert_equal(label: str, actual: list[str], expected: list[str], errors: list[str]) -> None:
     if actual != expected:
-        errors.append(
-            f"{label} mismatch.\n"
-            f"  actual:   {actual}\n"
-            f"  expected: {expected}"
-        )
+        errors.append(f"{label} mismatch.\n" f"  actual:   {actual}\n" f"  expected: {expected}")
 
 
 def _validate_requirements(pyproject: dict[str, object], root: Path, errors: list[str]) -> None:
@@ -99,7 +95,7 @@ def _validate_requirements(pyproject: dict[str, object], root: Path, errors: lis
 def _validate_dependabot(root: Path, errors: list[str]) -> None:
     text = (root / ".github" / "dependabot.yml").read_text(encoding="utf-8")
     required_snippets = (
-        'open-pull-requests-limit: 1',
+        "open-pull-requests-limit: 1",
         'interval: "monthly"',
         'dependency-name: "pypdf"',
         'patterns:\n          - "*"',
