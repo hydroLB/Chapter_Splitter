@@ -20,6 +20,7 @@ REQUIRED_FILES: tuple[str, ...] = (
     "README.MD",
     "SECURITY.md",
     "scripts/check_dependency_policy.py",
+    "scripts/run_with_repo_python.sh",
     "pyproject.toml",
     "requirements-dev.lock",
     "requirements.lock",

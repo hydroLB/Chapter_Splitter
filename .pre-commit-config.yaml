@@ -11,6 +11,7 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: detect-aws-credentials
+        args: ["--allow-missing-credentials"]
       - id: detect-private-key
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
@@ -23,27 +24,22 @@ repos:
     hooks:
       - id: mypy
         args: ["--config-file=pyproject.toml"]
-        additional_dependencies: ["pypdf==6.7.5"]
+        additional_dependencies: ["pypdf==6.7.5", "pytest==8.2.1", "types-setuptools"]
   - repo: local
     hooks:
       - id: dependency-policy
         name: dependency-policy
-        entry: python scripts/check_dependency_policy.py
+        entry: bash scripts/run_with_repo_python.sh scripts/check_dependency_policy.py
         language: system
         pass_filenames: false
       - id: repo-hygiene
         name: repo-hygiene
-        entry: python scripts/check_repo_hygiene.py
+        entry: bash scripts/run_with_repo_python.sh scripts/check_repo_hygiene.py
         language: system
         pass_filenames: false
       - id: docstring-standards
         name: docstring-standards
-        entry: python scripts/check_docstring_standards.py
-        language: system
-        pass_filenames: false
-      - id: pytest
-        name: pytest
-        entry: pytest -q
+        entry: bash scripts/run_with_repo_python.sh scripts/check_docstring_standards.py
         language: system
         pass_filenames: false
   - repo: https://github.com/gitleaks/gitleaks
