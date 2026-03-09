@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ -x "$ROOT_DIR/.venv311/bin/python" ]]; then
+  PRE_COMMIT_PYTHON="$ROOT_DIR/.venv311/bin/python"
+elif [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
+  PRE_COMMIT_PYTHON="$ROOT_DIR/.venv/bin/python"
+else
+  PRE_COMMIT_PYTHON="python3"
+fi
+
+if [[ "$#" -gt 0 ]]; then
+  exec "$PRE_COMMIT_PYTHON" -m pre_commit run --hook-stage pre-commit --files "$@"
+fi
+
+exec "$PRE_COMMIT_PYTHON" -m pre_commit run --hook-stage pre-commit --all-files

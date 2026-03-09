@@ -15,13 +15,13 @@ endif
 MODE ?= gui
 PYTHON ?= $(if $(BIN_DIR),$(BIN_DIR)/python,python3)
 PIP := $(PYTHON) -m pip
-RUFF := $(if $(BIN_DIR),$(BIN_DIR)/ruff,ruff)
-MYPY := $(if $(BIN_DIR),$(BIN_DIR)/mypy,mypy)
-COVERAGE := $(if $(BIN_DIR),$(BIN_DIR)/coverage,coverage)
-BANDIT := $(if $(BIN_DIR),$(BIN_DIR)/bandit,bandit)
-PIP_AUDIT := $(if $(BIN_DIR),$(BIN_DIR)/pip-audit,pip-audit)
+RUFF := $(PYTHON) -m ruff
+MYPY := $(PYTHON) -m mypy
+COVERAGE := $(PYTHON) -m coverage
+BANDIT := $(PYTHON) -m bandit
+PIP_AUDIT := $(PYTHON) -m pip_audit
 
-.PHONY: help install-dev dev lint typecheck boundaries repo-hygiene docstrings test security build release-check check
+.PHONY: help install-dev hooks dev lint typecheck boundaries deps-policy repo-hygiene docstrings test security build release-check check
 
 help: ## Show available targets.
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "%-14s %s\n", $$1, $$2}'
@@ -30,7 +30,11 @@ install-dev: ## Install pinned runtime and development dependencies.
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt -r requirements-dev.txt
 	$(PIP) install -e .
-	$(PYTHON) -m pre_commit install --hook-type pre-commit --hook-type pre-push
+	$(MAKE) hooks
+
+hooks: ## Install repo-owned git hooks into the local clone.
+	git config core.hooksPath .githooks
+	chmod +x .githooks/pre-commit .githooks/pre-push
 
 dev: ## Run the local application workflow (MODE=gui or MODE=split).
 	CHAPTER_SPLITTER_MODE=$(MODE) ./start
@@ -44,6 +48,9 @@ typecheck: ## Run strict static typing checks.
 
 boundaries: ## Enforce module dependency direction rules.
 	$(PYTHON) scripts/check_import_boundaries.py
+
+deps-policy: ## Enforce dependency lockfile and Dependabot policy consistency.
+	$(PYTHON) scripts/check_dependency_policy.py
 
 repo-hygiene: ## Enforce tracked-file hygiene for public recovery-ready repositories.
 	$(PYTHON) scripts/check_repo_hygiene.py
@@ -66,4 +73,4 @@ build: ## Build source and wheel distributions.
 release-check: ## Enforce release discipline checks.
 	$(PYTHON) scripts/check_release_discipline.py
 
-check: lint typecheck boundaries repo-hygiene docstrings test security build release-check ## Run all local quality gates.
+check: lint typecheck boundaries deps-policy repo-hygiene docstrings test security build release-check ## Run all local quality gates.

@@ -26,6 +26,11 @@ repos:
         additional_dependencies: ["pypdf==6.7.5"]
   - repo: local
     hooks:
+      - id: dependency-policy
+        name: dependency-policy
+        entry: python scripts/check_dependency_policy.py
+        language: system
+        pass_filenames: false
       - id: repo-hygiene
         name: repo-hygiene
         entry: python scripts/check_repo_hygiene.py

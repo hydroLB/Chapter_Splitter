@@ -15,7 +15,9 @@ make install-dev
 ```
 
 `make install-dev` also installs the repository `pre-commit` and `pre-push` hooks so hygiene,
-tests, and secret scanning stay attached to normal Git workflows.
+tests, and secret scanning stay attached to normal Git workflows. The hooks are committed under
+`.githooks/` and `make install-dev` sets `core.hooksPath` so the clone uses the repo-owned hooks
+instead of ad-hoc local copies.
 
 Run the desktop workflow:
 
@@ -44,6 +46,7 @@ If you prefer zero setup commands, use:
 | `make lint` | Run formatter check and linter |
 | `make typecheck` | Run strict `mypy` checks |
 | `make boundaries` | Enforce layered import dependency direction |
+| `make deps-policy` | Enforce lockfile and Dependabot anti-spam policy |
 | `make repo-hygiene` | Block tracked local artifacts, secret-bearing files, and missing bootstrap files |
 | `make test` | Run tests with coverage gate |
 | `make security` | Run Bandit and dependency audit |
@@ -160,6 +163,7 @@ python scripts/profile_split.py
 - Contribution guide: `CONTRIBUTING.md`
 - Security policy: `SECURITY.md`
 - Dependency update automation: `.github/dependabot.yml`
+- Git hook enforcement: `.githooks/`
 - Incident runbooks: `docs/runbooks/`
 - Architecture narrative: `docs/architecture.md`
 - ADRs: `docs/adr/`
