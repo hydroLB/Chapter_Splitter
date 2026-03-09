@@ -98,3 +98,12 @@ profiles/
 
 # Benchmark generated artifacts
 benchmarks/*.pdf
+
+# Legacy hook and scan artifacts
+git-autosnap.sh
+gitleaks-prepush.json
+pre-commit
+pre-commit 2
+pre-push
+pre-push 2
+post-commit
