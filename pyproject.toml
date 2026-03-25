@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Leon Bouramia" }]
 dependencies = [
-  "pypdf==6.7.5",
+  "pypdf==6.9.2",
 ]
 
 [project.optional-dependencies]
