@@ -18,7 +18,7 @@ the document, correct anything that needs attention, and export without uploadin
   <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-1f6d34">
 </p>
 
-![PDF Chapter Splitter desktop application](.github/assets/chapter-splitter-gui.png)
+![PDF Chapter Splitter running in the browser](.github/assets/chapter-splitter-web.png)
 
 The browser showcase runs locally in the browser: choose a PDF, edit chapter ranges, preview pages,
 and export the result. The downloadable app is the full native Qt application and includes the CLI.
