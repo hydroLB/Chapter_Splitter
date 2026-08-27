@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import plistlib
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from scripts import bundle_pyinstaller
@@ -51,6 +54,28 @@ def test_log_contains_event_ignores_unrelated_and_malformed_lines(tmp_path: Path
     assert bundle_pyinstaller._log_contains_event(log_path, "app_started")
     assert not bundle_pyinstaller._log_contains_event(log_path, "missing")
     assert not bundle_pyinstaller._log_contains_event(tmp_path / "absent.jsonl", "app_started")
+
+
+def test_windows_smoke_cleanup_stops_onefile_process_tree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows cleanup must stop the PyInstaller bootloader and its child process."""
+    process = Mock(pid=4242)
+    process.poll.return_value = None
+    run = Mock(return_value=SimpleNamespace(returncode=0))
+    monkeypatch.setattr(os, "name", "nt")
+    monkeypatch.setattr(subprocess, "run", run)
+
+    bundle_pyinstaller._stop_process_tree(process)
+
+    run.assert_called_once_with(
+        ["taskkill", "/PID", "4242", "/T", "/F"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    process.terminate.assert_not_called()
+    process.wait.assert_called_once_with(timeout=5)
 
 
 def test_finalize_macos_bundle_uses_project_identity(

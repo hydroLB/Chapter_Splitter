@@ -312,7 +312,14 @@ def _stop_process_tree(process: subprocess.Popen[str]) -> None:
     """Stop the smoke-test process group, including a one-file bootloader child."""
     if os.name == "nt":
         if process.poll() is None:
-            process.terminate()
+            result = subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0 and process.poll() is None:
+                process.terminate()
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
