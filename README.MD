@@ -36,7 +36,7 @@ upload endpoint.
 
 ## Download
 
-Download the archive for macOS, Windows, or Linux from the
+Download the archive for macOS (Apple silicon), Windows x86-64, or Linux x86-64 from the
 [latest release](https://github.com/hydroLB/Chapter_Splitter/releases/latest). Each archive has a
 matching SHA-256 file. The current community builds are automated and unsigned, so macOS Gatekeeper
 or Windows SmartScreen may ask for confirmation. The release notes identify this explicitly.
