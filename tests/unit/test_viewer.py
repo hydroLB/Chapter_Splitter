@@ -15,23 +15,7 @@ def test_open_path_in_default_viewer_times_out(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Verify that viewer launch enforces a timeout.
-
-    Summary:
-        Ensure open_path_in_default_viewer does not block longer than the configured timeout when
-        the underlying viewer call hangs.
-    Ties to other methods:
-        Covers chapter_splitter.utils.viewer.open_path_in_default_viewer.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Temporary directory fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Creates a temporary file and patches webbrowser.open.
-    Error handling:
-        - None.
-    """
+    """Verify that viewer launch enforces a timeout."""
     target = tmp_path / "sample.pdf"
     target.write_bytes(b"%PDF-1.4\n%EOF\n")
 
@@ -58,22 +42,7 @@ def test_open_path_in_default_viewer_rejects_non_finite_timeout(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Verify non-finite viewer timeouts are rejected.
-
-    Summary:
-        Prevent hangs or unpredictable behavior when timeout values are NaN or infinity.
-    Ties to other methods:
-        Covers chapter_splitter.utils.viewer.open_path_in_default_viewer.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Temporary directory fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Creates a temporary file and patches webbrowser.open.
-    Error handling:
-        - None.
-    """
+    """Verify non-finite viewer timeouts are rejected."""
     import math
 
     target = tmp_path / "sample.pdf"

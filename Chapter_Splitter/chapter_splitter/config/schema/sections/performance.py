@@ -2,62 +2,21 @@
 
 from __future__ import annotations
 
+from math import isfinite
+
 from ....core.errors import ConfigurationError, format_error_message
 
 
 class PerformanceConfig:
-    """Performance measurement settings.
-
-    Summary:
-        Control profiling, benchmarks, and performance thresholds.
-    Ties to other methods:
-        Used by performance scripts and CI checks.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Performance measurement settings."""
 
     def __init__(self, benchmark_iterations: int, benchmark_budget_seconds: float) -> None:
-        """Initialize performance configuration.
-
-        Summary:
-            Control benchmark iteration count and performance budgets.
-        Ties to other methods:
-            Used by benchmark tests and profiling scripts.
-        Inputs:
-            - benchmark_iterations: Number of benchmark repetitions.
-            - benchmark_budget_seconds: Target budget per benchmark.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Initialize performance configuration."""
         self.benchmark_iterations = benchmark_iterations
         self.benchmark_budget_seconds = benchmark_budget_seconds
 
     def validate(self, location: str) -> None:
-        """Validate performance configuration.
-
-        Summary:
-            Ensure benchmark limits are usable in CI and local runs.
-        Ties to other methods:
-            Called by Settings.validate before benchmark checks run.
-        Inputs:
-            - location: Fully qualified module and method name.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - ConfigurationError: When performance settings are invalid.
-        """
+        """Validate performance configuration."""
         error_location = f"{__name__}.PerformanceConfig.validate"
         context = f" Context: {location}." if location else ""
         if self.benchmark_iterations < 1:
@@ -67,10 +26,10 @@ class PerformanceConfig:
                     f"performance.benchmark_iterations must be at least 1.{context}",
                 )
             )
-        if self.benchmark_budget_seconds <= 0:
+        if not isfinite(self.benchmark_budget_seconds) or self.benchmark_budget_seconds <= 0:
             raise ConfigurationError(
                 format_error_message(
                     error_location,
-                    f"performance.benchmark_budget_seconds must be positive.{context}",
+                    f"performance.benchmark_budget_seconds must be finite and positive.{context}",
                 )
             )

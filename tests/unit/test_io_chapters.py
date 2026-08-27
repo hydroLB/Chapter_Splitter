@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 
@@ -19,21 +20,7 @@ from chapter_splitter.utils import Deadline
 
 
 def test_load_chapter_file_requires_existing_path(tmp_path: Path) -> None:
-    """Verify loader fails when chapter file does not exist.
-
-    Summary:
-        Provide immediate feedback for CLI users pointing at the wrong file.
-    Ties to other methods:
-        Covers chapter_splitter.io.chapters.load_chapter_file.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify loader fails when chapter file does not exist."""
     token = CancellationToken()
     deadline = Deadline(1.0)
     with pytest.raises(IoError):
@@ -45,22 +32,24 @@ def test_load_chapter_file_requires_existing_path(tmp_path: Path) -> None:
         )
 
 
-def test_load_chapter_file_rejects_invalid_toml(tmp_path: Path) -> None:
-    """Verify invalid TOML is rejected as a validation error.
+def test_load_chapter_file_rejects_directory_path(tmp_path: Path) -> None:
+    """Verify loader rejects directories before attempting to read TOML."""
+    token = CancellationToken()
+    deadline = Deadline(1.0)
+    chapter_dir = tmp_path / "chapters.toml"
+    chapter_dir.mkdir()
 
-    Summary:
-        Avoid undefined behavior when chapter files are malformed.
-    Ties to other methods:
-        Covers chapter_splitter.io.chapters.load_chapter_file.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Writes a temporary file.
-    Error handling:
-        - None.
-    """
+    with pytest.raises(IoError, match="Chapter file path is not a file"):
+        load_chapter_file(
+            chapter_dir,
+            deadline=deadline,
+            token=token,
+            location="tests.unit.test_io_chapters",
+        )
+
+
+def test_load_chapter_file_rejects_invalid_toml(tmp_path: Path) -> None:
+    """Verify invalid TOML is rejected as a validation error."""
     token = CancellationToken()
     deadline = Deadline(1.0)
     path = tmp_path / "bad.toml"
@@ -75,21 +64,7 @@ def test_load_chapter_file_rejects_invalid_toml(tmp_path: Path) -> None:
 
 
 def test_load_chapter_file_rejects_missing_chapters_array(tmp_path: Path) -> None:
-    """Verify loader requires a top-level chapters array.
-
-    Summary:
-        Keep the chapter file schema strict and predictable.
-    Ties to other methods:
-        Covers chapter_splitter.io.chapters.load_chapter_file.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Writes a temporary file.
-    Error handling:
-        - None.
-    """
+    """Verify loader requires a top-level chapters array."""
     token = CancellationToken()
     deadline = Deadline(1.0)
     path = tmp_path / "chapters.toml"
@@ -104,21 +79,7 @@ def test_load_chapter_file_rejects_missing_chapters_array(tmp_path: Path) -> Non
 
 
 def test_load_chapter_file_parses_valid_entries(tmp_path: Path) -> None:
-    """Verify loader parses valid chapter definitions.
-
-    Summary:
-        Ensure CLI chapter files map to ChapterDefinition objects.
-    Ties to other methods:
-        Covers chapter_splitter.io.chapters.load_chapter_file.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Writes and reads a temporary file.
-    Error handling:
-        - None.
-    """
+    """Verify loader parses valid chapter definitions."""
     token = CancellationToken()
     deadline = Deadline(1.0)
     path = tmp_path / "chapters.toml"
@@ -143,22 +104,35 @@ end_page = 2
     assert chapters[0].end_page == 2
 
 
-def test_load_chapter_file_with_metadata_returns_session_data(tmp_path: Path) -> None:
-    """Verify chapter loader returns optional session metadata when present.
+@pytest.mark.parametrize("field", ["start_page", "end_page"])
+def test_load_chapter_file_rejects_boolean_page_fields(tmp_path: Path, field: str) -> None:
+    """Verify TOML booleans are not accepted as integer page numbers."""
+    path = tmp_path / "chapters.toml"
+    values: dict[str, str] = {"start_page": "1", "end_page": "2"}
+    values[field] = "true"
+    path.write_text(
+        "\n".join(
+            (
+                "[[chapters]]",
+                'title = "Intro"',
+                f"start_page = {values['start_page']}",
+                f"end_page = {values['end_page']}",
+            )
+        ),
+        encoding="utf-8",
+    )
 
-    Summary:
-        Allow GUI workflows to warn on mismatched PDFs during imports.
-    Ties to other methods:
-        Covers chapter_splitter.io.chapters.load_chapter_file_with_metadata.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Writes and reads a temporary file.
-    Error handling:
-        - None.
-    """
+    with pytest.raises(ValidationError, match="Chapter pages must be integers"):
+        load_chapter_file(
+            path,
+            deadline=Deadline(1.0),
+            token=CancellationToken(),
+            location="tests.unit.test_io_chapters",
+        )
+
+
+def test_load_chapter_file_with_metadata_returns_session_data(tmp_path: Path) -> None:
+    """Verify chapter loader returns optional session metadata when present."""
     token = CancellationToken()
     deadline = Deadline(1.0)
     path = tmp_path / "chapters.toml"
@@ -191,22 +165,33 @@ end_page = 2
     assert len(chapters) == 1
 
 
-def test_write_chapter_file_writes_session_and_chapters(tmp_path: Path) -> None:
-    """Verify writer produces a TOML file containing session metadata and chapters.
+def test_load_chapter_file_rejects_boolean_total_pages(tmp_path: Path) -> None:
+    """Verify session page totals reject TOML booleans despite Python's numeric bool type."""
+    path = tmp_path / "chapters.toml"
+    path.write_text(
+        """
+[session]
+total_pages = false
 
-    Summary:
-        Ensure GUI exports are deterministic and can be re-imported later.
-    Ties to other methods:
-        Covers chapter_splitter.io.chapters.write_chapter_file session rendering.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Writes a TOML file to disk.
-    Error handling:
-        - None.
-    """
+[[chapters]]
+title = "Intro"
+start_page = 1
+end_page = 2
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError, match="session.total_pages must be an integer"):
+        load_chapter_file_with_metadata(
+            path,
+            deadline=Deadline(1.0),
+            token=CancellationToken(),
+            location="tests.unit.test_io_chapters",
+        )
+
+
+def test_write_chapter_file_writes_session_and_chapters(tmp_path: Path) -> None:
+    """Verify writer produces a TOML file containing session metadata and chapters."""
     token = CancellationToken()
     deadline = Deadline(1.0)
     out_path = tmp_path / "export.toml"
@@ -233,22 +218,51 @@ def test_write_chapter_file_writes_session_and_chapters(tmp_path: Path) -> None:
     assert "detection" not in data
 
 
-def test_write_chapter_file_writes_detection_when_provided(tmp_path: Path) -> None:
-    """Verify writer includes [detection] metadata when a report is provided.
+def test_write_chapter_file_round_trips_control_characters_and_unicode(tmp_path: Path) -> None:
+    """Verify all C0 controls, DEL, and ordinary Unicode survive TOML serialization."""
+    token = CancellationToken()
+    deadline = Deadline(1.0)
+    out_path = tmp_path / "controls.toml"
+    title = "Controls:" + "".join(chr(codepoint) for codepoint in range(0x20)) + "\x7f — 雪"
+    session = ChapterFileSessionMetadata(
+        pdf_path="/tmp/café/雪.pdf\r\n",
+        total_pages=1,
+        saved_at=None,
+        source="gui\x00\x1f",
+    )
 
-    Summary:
-        Preserve CLI detect diagnostics in exported chapter files.
-    Ties to other methods:
-        Covers chapter_splitter.io.chapters.write_chapter_file detection rendering.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Writes a TOML file to disk.
-    Error handling:
-        - None.
-    """
+    write_chapter_file(
+        out_path,
+        chapters=[ChapterDefinition(title=title, start_page=1, end_page=1)],
+        report=None,
+        session=session,
+        overwrite=True,
+        deadline=deadline,
+        token=token,
+        location="tests.unit.test_io_chapters",
+    )
+
+    payload = out_path.read_text(encoding="utf-8")
+    parsed = tomllib.loads(payload)
+    assert parsed["chapters"][0]["title"] == title
+    assert parsed["session"]["pdf_path"] == session.pdf_path
+    assert parsed["session"]["source"] == session.source
+    assert "雪" in payload
+    title_line = next(line for line in payload.splitlines() if line.startswith("title = "))
+    assert all(ord(character) >= 0x20 for character in title_line)
+
+    loaded_session, chapters = load_chapter_file_with_metadata(
+        out_path,
+        deadline=Deadline(1.0),
+        token=CancellationToken(),
+        location="tests.unit.test_io_chapters",
+    )
+    assert loaded_session == session
+    assert chapters[0].title == title
+
+
+def test_write_chapter_file_writes_detection_when_provided(tmp_path: Path) -> None:
+    """Verify writer includes [detection] metadata when a report is provided."""
     token = CancellationToken()
     deadline = Deadline(1.0)
     out_path = tmp_path / "detect.toml"
@@ -274,3 +288,31 @@ def test_write_chapter_file_writes_detection_when_provided(tmp_path: Path) -> No
     data = tomllib.loads(out_path.read_text(encoding="utf-8"))
     assert data["detection"]["strategy"] == "outlines"
     assert data["chapters"][0]["title"] == "One"
+
+
+def test_write_chapter_file_never_clobbers_a_racing_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Preserve a destination created between validation and commit."""
+    out_path = tmp_path / "race.toml"
+    real_link = os.link
+
+    def create_destination_then_link(source: Path, destination: Path) -> None:
+        destination.write_text("created by another process", encoding="utf-8")
+        real_link(source, destination)
+
+    monkeypatch.setattr(os, "link", create_destination_then_link)
+
+    with pytest.raises(IoError, match="Failed to write chapter file"):
+        write_chapter_file(
+            out_path,
+            chapters=[ChapterDefinition(title="One", start_page=1, end_page=1)],
+            report=None,
+            session=None,
+            overwrite=False,
+            deadline=Deadline(1.0),
+            token=CancellationToken(),
+            location="tests.unit.test_io_chapters",
+        )
+
+    assert out_path.read_text(encoding="utf-8") == "created by another process"

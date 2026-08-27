@@ -14,21 +14,17 @@ explicitly targeted and covered by tests.
 
 ```bash
 make install-dev
+source .venv/bin/activate
 ```
 
-Install local hooks:
-
-```bash
-make install-dev
-```
-
-`make install-dev` installs both `pre-commit` and `pre-push` hooks so local changes are checked
-before they are committed or pushed.
+Use `make install-desktop` instead when changing the Qt workflow. Both targets create the same
+`.venv` and install the repo-owned hooks. Pre-push scans repository history with `gitleaks`, then
+runs `make check`.
 
 Manual secret scan:
 
 ```bash
-.venv311/bin/pre-commit run --hook-stage manual gitleaks --all-files
+.venv/bin/pre-commit run --hook-stage manual gitleaks --all-files
 ```
 
 The `gitleaks` hook also runs on `pre-push`, so pushes are blocked if a likely secret is staged in
@@ -38,8 +34,9 @@ history or the working branch.
 
 1. Create a small branch focused on one change.
 2. Add or update tests before changing behavior.
-3. Run `make check` locally.
-4. Submit a PR using the PR template.
+3. Keep exact direct dependency pins aligned across `pyproject.toml` and `requirements*.txt`.
+4. Run `make check` locally.
+5. Submit a PR using the PR template.
 
 ## Quality Gates
 
@@ -55,9 +52,16 @@ The same checks run locally and in CI:
 
 Use `make check` to run all gates in one command.
 
+Dependency policy:
+
+- `make deps-policy` enforces that `pyproject.toml`, `requirements*.txt`, and `.github/dependabot.yml` stay aligned with exact direct pins.
+- Dependabot is intentionally limited to grouped direct dependency updates to keep the repository low-noise.
+
 Coverage policy:
 
-- `make test` enforces coverage at `>= 90%` via the configured coverage fail-under gate.
+- `make test` enforces branch-aware coverage at `>= 90%` across the configured non-Qt
+  core/application scope; Qt modules have separate offscreen tests and are excluded from this
+  percentage.
 - CI uses the same gate to prevent drift between local and remote validation.
 
 ## Testing Expectations
@@ -65,6 +69,8 @@ Coverage policy:
 - Unit tests for core logic.
 - Integration tests for IO boundaries.
 - End-to-end smoke coverage for critical CLI workflows.
+- Offscreen Qt tests for startup and deterministic interaction behavior; do not describe these as a
+  full real detect-review-export E2E unless the test actually drives that complete workflow.
 - Deterministic tests only.
 
 ## Pull Request Guidelines

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from chapter_splitter.config.schema import DetectionConfig
 from chapter_splitter.core import CancellationToken
 from chapter_splitter.pdf.detection import detect_chapters_from_toc_page
+from chapter_splitter.pdf.detection.toc import detect_best_toc_chapters
 from chapter_splitter.utils import Deadline
 
 
@@ -43,21 +44,7 @@ def _default_detection() -> DetectionConfig:
 
 
 def test_detect_chapters_from_toc_page_parses_dotted_leaders() -> None:
-    """Verify TOC detection parses dotted-leader entries into chapter ranges.
-
-    Summary:
-        Ensure the fallback parser produces deterministic chapter ranges without PDF outlines.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.detection.toc.detect_chapters_from_toc_page.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify TOC detection parses dotted-leader entries into chapter ranges."""
     reader = _FakeReader(
         pages=[
             _FakePage(text="Cover"),
@@ -92,21 +79,7 @@ def test_detect_chapters_from_toc_page_parses_dotted_leaders() -> None:
 
 
 def test_detect_chapters_from_toc_page_returns_empty_when_insufficient_entries() -> None:
-    """Verify TOC detection returns an empty list when it cannot find enough entries.
-
-    Summary:
-        Avoid populating the grid with low-confidence or partial TOC parses.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.detection.toc.detect_chapters_from_toc_page.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify TOC detection returns an empty list when it cannot find enough entries."""
     reader = _FakeReader(
         pages=[
             _FakePage(text="Contents\nAppendix .... 9999"),
@@ -123,3 +96,46 @@ def test_detect_chapters_from_toc_page_returns_empty_when_insufficient_entries()
         location="tests.unit.test_toc_detection",
     )
     assert chapters == []
+
+
+def test_scrambled_toc_source_order_reduces_confidence_but_keeps_ordered_ranges() -> None:
+    """Verify source order affects confidence without corrupting chapter construction."""
+    normal_reader = _FakeReader(
+        pages=[_FakePage(text="Intro .... 1\nChapter 1 .... 5\nChapter 2 .... 12")]
+    )
+    scrambled_reader = _FakeReader(
+        pages=[_FakePage(text="Intro .... 1\nChapter 2 .... 12\nChapter 1 .... 5")]
+    )
+    detection = _default_detection()
+
+    normal = detect_best_toc_chapters(
+        reader=normal_reader,
+        total_pages=20,
+        detection=detection,
+        deadline=Deadline(1.0),
+        token=CancellationToken(),
+        toc_hint_page=1,
+        location="tests.unit.test_toc_detection",
+        force_hint_page=True,
+    )
+    scrambled = detect_best_toc_chapters(
+        reader=scrambled_reader,
+        total_pages=20,
+        detection=detection,
+        deadline=Deadline(1.0),
+        token=CancellationToken(),
+        toc_hint_page=1,
+        location="tests.unit.test_toc_detection",
+        force_hint_page=True,
+    )
+
+    assert scrambled.confidence < normal.confidence
+    assert "TOC page numbers are not strictly increasing." in scrambled.warnings
+    scrambled_ranges = [
+        (chapter.title, chapter.start_page, chapter.end_page) for chapter in scrambled.chapters
+    ]
+    assert scrambled_ranges == [
+        ("Intro", 1, 4),
+        ("Chapter 1", 5, 11),
+        ("Chapter 2", 12, 20),
+    ]

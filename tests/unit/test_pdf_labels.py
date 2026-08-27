@@ -16,83 +16,27 @@ class _ReaderWithLabels:
 
 
 def test_extract_page_labels_returns_none_when_missing() -> None:
-    """Verify missing labels return None.
-
-    Summary:
-        Allow callers to fall back to numeric page numbers.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.io.labels.extract_page_labels.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify missing labels return None."""
     reader = cast(PdfReader, _ReaderWithLabels(labels=None))
     assert extract_page_labels(reader, "tests.unit.test_pdf_labels") is None
 
 
 def test_extract_page_labels_rejects_non_string_labels() -> None:
-    """Verify non-string labels are rejected.
-
-    Summary:
-        Keep label mapping deterministic and safe.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.io.labels.extract_page_labels.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify non-string labels are rejected."""
     reader = cast(PdfReader, _ReaderWithLabels(labels=[1, 2]))
     with pytest.raises(PdfProcessingError):
         extract_page_labels(reader, "tests.unit.test_pdf_labels")
 
 
 def test_extract_page_labels_requires_attribute() -> None:
-    """Verify readers without label support raise a processing error.
-
-    Summary:
-        Fail with a clear error when a reader implementation is incompatible.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.io.labels.extract_page_labels.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify readers without label support raise a processing error."""
     reader = cast(PdfReader, object())
     with pytest.raises(PdfProcessingError):
         extract_page_labels(reader, "tests.unit.test_pdf_labels")
 
 
 def test_infer_page_offset_from_labels_returns_offset_when_numeric_run_exists() -> None:
-    """Verify offset inference finds the start of numeric page labels.
-
-    Summary:
-        Reduce user configuration friction when PDFs expose page label metadata.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify offset inference finds the start of numeric page labels."""
     labels = ["i", "ii", "iii", "1", "2", "3", "4"]
     assert (
         infer_page_offset_from_labels(
@@ -105,21 +49,7 @@ def test_infer_page_offset_from_labels_returns_offset_when_numeric_run_exists() 
 
 
 def test_infer_page_offset_from_labels_returns_none_when_run_is_too_short() -> None:
-    """Verify inference respects the sequential run threshold.
-
-    Summary:
-        Avoid false positives from isolated numeric labels.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify inference respects the sequential run threshold."""
     labels = ["x", "1", "x", "2"]
     assert (
         infer_page_offset_from_labels(
@@ -132,21 +62,7 @@ def test_infer_page_offset_from_labels_returns_none_when_run_is_too_short() -> N
 
 
 def test_infer_page_offset_from_labels_rejects_invalid_threshold() -> None:
-    """Verify inference rejects invalid thresholds.
-
-    Summary:
-        Keep the heuristic deterministic and safe under strict typing.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.io.labels.infer_page_offset_from_labels.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify inference rejects invalid thresholds."""
     with pytest.raises(PdfProcessingError):
         infer_page_offset_from_labels(
             ["1"],

@@ -30,22 +30,7 @@ class _FakeReader(OutlineReaderProtocol):
 
 
 def test_extract_outline_entries_prefers_deeper_items_when_top_level_is_ignored() -> None:
-    """Verify ignored depth-0 titles allow falling back to deeper outline entries.
-
-    Summary:
-        Ensure ignore patterns do not leave the user with an empty chapter list when useful
-        entries exist at deeper depths.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.detection.outlines.extract_outline_entries depth selection.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify ignored depth-0 titles allow falling back to deeper outline entries."""
     reader = _FakeReader(
         outline=[
             _Item("Contents", 0),
@@ -69,21 +54,7 @@ def test_extract_outline_entries_prefers_deeper_items_when_top_level_is_ignored(
 
 
 def test_extract_outline_entries_respects_min_depth() -> None:
-    """Verify outline_min_depth selects the shallowest eligible depth.
-
-    Summary:
-        Allow users to ignore high-level outline nodes such as "Part 1" when chapters live deeper.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.detection.outlines.extract_outline_entries min depth logic.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify outline_min_depth selects the shallowest eligible depth."""
     reader = _FakeReader(
         outline=[
             _Item("Book", 0),
@@ -107,21 +78,7 @@ def test_extract_outline_entries_respects_min_depth() -> None:
 
 
 def test_detect_chapters_from_outlines_reader_merges_tiny_ranges_forward() -> None:
-    """Verify tiny ranges are merged into the next chapter when possible.
-
-    Summary:
-        Reduce one-page outline noise that fragments the detected chapter list.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.detection.outlines.detect_chapters_from_outlines_reader merging.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify tiny ranges are merged into the next chapter when possible."""
     reader = _FakeReader(outline=None)
     token = CancellationToken()
     deadline = Deadline(1.0)
@@ -139,3 +96,19 @@ def test_detect_chapters_from_outlines_reader_merges_tiny_ranges_forward() -> No
         ("A / B", 1, 9),
         ("C", 10, 12),
     ]
+
+
+def test_detect_chapters_from_outlines_reader_respects_explicit_empty_entries() -> None:
+    """Verify a pre-filtered empty result does not trigger outline re-extraction."""
+    reader = _FakeReader(outline=[_Item("Unexpected", 0)])
+
+    chapters = detect_chapters_from_outlines_reader(
+        reader=reader,
+        total_pages=12,
+        deadline=Deadline(1.0),
+        token=CancellationToken(),
+        location="tests.unit.test_outlines_filtering",
+        entries=[],
+    )
+
+    assert chapters == []

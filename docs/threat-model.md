@@ -40,7 +40,7 @@ The model assumes local desktop/CLI execution with user-selected files and no ne
 #### Existing Mitigations
 
 - typed domain validation for chapter ranges and constraints
-- explicit IO time bounds with `Deadline` and cancellation checks
+- cooperative IO deadlines and cancellation checks at application-controlled checkpoints
 - retry policy constrained by config and bounded backoff
 - strict TOML parsing and type checks for chapter structures
 - sanitized output filename generation (`safe_filename`)
@@ -50,6 +50,7 @@ The model assumes local desktop/CLI execution with user-selected files and no ne
 
 - parser-level denial-of-service remains possible with adversarial PDFs
 - very large local files can still consume resources before cancellation triggers
+- a blocking parser or serializer call cannot be forcibly interrupted by a deadline or token
 
 ### 2) Config Override
 
@@ -80,7 +81,11 @@ The model assumes local desktop/CLI execution with user-selected files and no ne
 #### Existing Mitigations
 
 - explicit collision policy (`error`/`overwrite`/`suffix`) with deterministic checks
-- atomic write pattern for PDF and chapter outputs (temp file then replace)
+- chapter PDFs are staged beside their destinations before any batch commit begins
+- ordinary commit failures trigger reverse-order rollback; overwrite mode preserves originals in
+  temporary backups until commit succeeds
+- non-overwrite commits use no-clobber installation, preventing a target created after planning from
+  being silently replaced
 - output parent validation and directory creation checks
 - cancellation and timeout checks during export loops
 
@@ -88,6 +93,7 @@ The model assumes local desktop/CLI execution with user-selected files and no ne
 
 - user-specified output paths can still target unintended locations on the same machine
 - overwrite mode remains destructive by design
+- process or machine termination during the multi-file commit window can leave a partial batch
 
 ### 4) Logging Redaction
 
@@ -100,8 +106,10 @@ The model assumes local desktop/CLI execution with user-selected files and no ne
 
 - structured JSON logging with explicit event fields
 - context correlation IDs for traceability
-- redaction policy for configured keys and sensitive value substrings
-- log contract tests for required schema and correlation ID presence
+- recursive redaction for configured keys and sensitive value substrings in nested mappings,
+  sequences, and exception diagnostics, with cycle-safe traversal
+- log contract tests for required schema, correlation IDs, recursive redaction, and sanitized
+  exception tracebacks
 
 #### Residual Risk
 

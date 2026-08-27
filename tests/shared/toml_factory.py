@@ -7,22 +7,7 @@ from pathlib import Path
 
 
 def write_chapters_toml(path: Path, chapters: Sequence[tuple[str, int, int]]) -> Path:
-    """Write a deterministic chapters TOML file.
-
-    Summary:
-        Centralize chapter file fixture generation so tests avoid inline ad-hoc TOML strings.
-    Ties to other methods:
-        Used by pytest fixtures and smoke tests that require chapter definitions on disk.
-    Inputs:
-        - path: Destination path for the TOML file.
-        - chapters: Sequence of tuples in the form (title, start_page, end_page).
-    Outputs:
-        - Path to the written TOML file.
-    Side effects:
-        Writes a UTF-8 TOML file with normalized newline handling.
-    Error handling:
-        - ValueError: When no chapters are provided.
-    """
+    """Write a deterministic chapters TOML file."""
     if not chapters:
         raise ValueError(
             "tests.shared.toml_factory.write_chapters_toml requires at least one chapter"
@@ -45,22 +30,7 @@ def write_chapters_toml(path: Path, chapters: Sequence[tuple[str, int, int]]) ->
 
 
 def write_quiet_logging_override(path: Path, file_path: str = "cli.log") -> Path:
-    """Write a deterministic logging override TOML file.
-
-    Summary:
-        Keep CLI smoke tests deterministic by disabling console and file logging output.
-    Ties to other methods:
-        Used by pytest fixtures and smoke tests for CLI invocations.
-    Inputs:
-        - path: Destination path for the TOML file.
-        - file_path: Relative log file path used in logging config.
-    Outputs:
-        - Path to the written TOML file.
-    Side effects:
-        Writes a UTF-8 TOML file with normalized newline handling.
-    Error handling:
-        - ValueError: When file_path is empty.
-    """
+    """Write a deterministic logging override TOML file."""
     if not file_path.strip():
         raise ValueError(
             "tests.shared.toml_factory.write_quiet_logging_override requires file_path"

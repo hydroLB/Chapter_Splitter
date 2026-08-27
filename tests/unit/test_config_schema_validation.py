@@ -100,43 +100,19 @@ def _valid_ui() -> UIConfig:
     return UIConfig(
         window_width=800,
         window_height=600,
-        window_offset_x=10,
-        window_offset_y=10,
-        open_pdf_button_label="Open PDF",
         close_button_label="Close",
-        row_limit=10,
-        base_height=100,
-        row_height=10,
-        height_threshold_rows=0,
-        rows_per_column=10,
-        column_widths=(800,),
-        header_rows=1,
-        grid_columns=4,
-        grid_entry_width=10,
-        grid_remove_button_width=4,
-        grid_padding_x=0,
-        grid_padding_y=0,
-        grid_frame_padding_x=0,
-        grid_frame_padding_y=0,
-        grid_header_labels=("Title", "Start", "End", ""),
         undo_button_label="Undo",
-        remove_button_label="Remove",
         add_button_label="Add",
         auto_detect_button_label="Auto",
         export_button_label="Export",
         chapter_title_prefix="Chapter",
         no_chapters_title="No chapters",
-        no_chapters_message="No outlines found.",
         error_dialog_title="Error",
         success_dialog_title="Success",
         success_dialog_message_template="{count}",
-        auto_open_viewer=False,
         action_rate_limit_seconds=0.0,
         chapter_window_title="Chapters",
         file_dialog_title="Select PDF",
-        button_row_padding=0,
-        button_gap_padding=0,
-        export_button_padding=0,
         confirm_auto_detect_overwrite=True,
         confirm_auto_detect_overwrite_title="Replace?",
         confirm_auto_detect_overwrite_message="Replace.",
@@ -144,43 +120,14 @@ def _valid_ui() -> UIConfig:
         open_output_dir_prompt_title="Done",
         open_output_dir_prompt_message_template="{count} {output_dir}",
         enable_keyboard_shortcuts=True,
-        show_status_bar=True,
-        status_hint="hint",
         color_mode="auto",
-        enable_pdf_preview=False,
-        pdf_preview_zoom=1.0,
-        pdf_preview_fit_mode="none",
-        pdf_preview_fit_padding_px=0,
-        pdf_preview_continuous_scroll=True,
-        pdf_preview_supersample=1,
-        pdf_preview_min_zoom=0.25,
-        pdf_preview_max_zoom=4.0,
-        pdf_preview_zoom_step=0.1,
-        pdf_preview_cache_entries=4,
-        pdf_preview_render_timeout_seconds=1.0,
-        chapter_review_thumbnail_width=120,
-        chapter_review_columns=1,
         auto_show_review_after_detect=False,
         auto_detect_on_open=False,
     )
 
 
 def test_schema_validates_happy_path(tmp_path: Path) -> None:
-    """Verify config sections accept valid settings.
-
-    Summary:
-        Ensure baseline configs pass validation as a sanity check.
-    Ties to other methods:
-        Covers *.validate methods in chapter_splitter.config.schema sections.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify config sections accept valid settings."""
     _valid_app().validate("tests.unit.test_config_schema_validation")
     _valid_logging(tmp_path).validate("tests.unit.test_config_schema_validation")
     _valid_io().validate("tests.unit.test_config_schema_validation")
@@ -191,22 +138,38 @@ def test_schema_validates_happy_path(tmp_path: Path) -> None:
     _valid_detection().validate("tests.unit.test_config_schema_validation")
 
 
-def test_ui_config_validation_catches_all_key_invariants() -> None:
-    """Verify UIConfig emits actionable errors for invalid parameters.
+ConfigFactory = Callable[[], IOConfig | RetryConfig | PerformanceConfig]
 
-    Summary:
-        Ensure each invariant check stays covered and debuggable.
-    Ties to other methods:
-        Covers chapter_splitter.config.schema.sections.ui.UIConfig.validate.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+
+@pytest.mark.parametrize("invalid_value", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize(
+    ("config_factory", "field_name"),
+    [
+        (_valid_io, "viewer_timeout_seconds"),
+        (_valid_io, "pdf_read_timeout_seconds"),
+        (_valid_io, "pdf_write_timeout_seconds"),
+        (_valid_io, "operation_timeout_seconds"),
+        (_valid_retry, "initial_delay_seconds"),
+        (_valid_retry, "max_delay_seconds"),
+        (_valid_retry, "jitter_ratio"),
+        (_valid_performance, "benchmark_budget_seconds"),
+    ],
+)
+def test_float_config_fields_reject_non_finite_values(
+    config_factory: ConfigFactory,
+    field_name: str,
+    invalid_value: float,
+) -> None:
+    """Verify every floating-point field rejects NaN and infinities."""
+    config = config_factory()
+    setattr(config, field_name, invalid_value)
+
+    with pytest.raises(ConfigurationError, match=field_name):
+        config.validate("tests.unit.test_config_schema_validation")
+
+
+def test_ui_config_validation_catches_all_key_invariants() -> None:
+    """Verify UIConfig emits actionable errors for invalid parameters."""
 
     def assert_invalid(mutator: Callable[[UIConfig], None]) -> None:
         cfg = _valid_ui()
@@ -215,51 +178,22 @@ def test_ui_config_validation_catches_all_key_invariants() -> None:
             cfg.validate("tests.unit.test_config_schema_validation")
 
     assert_invalid(lambda c: setattr(c, "window_width", 0))
-    assert_invalid(lambda c: setattr(c, "row_limit", 0))
-    assert_invalid(lambda c: setattr(c, "base_height", 0))
-    assert_invalid(lambda c: setattr(c, "height_threshold_rows", -1))
     assert_invalid(lambda c: setattr(c, "action_rate_limit_seconds", -1))
     assert_invalid(lambda c: setattr(c, "chapter_window_title", ""))
-    assert_invalid(lambda c: setattr(c, "rows_per_column", 0))
-    assert_invalid(lambda c: setattr(c, "header_rows", -1))
-    assert_invalid(lambda c: setattr(c, "column_widths", ()))
     assert_invalid(lambda c: setattr(c, "file_dialog_title", ""))
-    assert_invalid(lambda c: setattr(c, "grid_columns", 3))
-    assert_invalid(lambda c: setattr(c, "grid_entry_width", 0))
-    assert_invalid(lambda c: setattr(c, "grid_padding_x", -1))
-    assert_invalid(lambda c: setattr(c, "grid_frame_padding_x", -1))
-    assert_invalid(lambda c: setattr(c, "grid_header_labels", ()))
     assert_invalid(lambda c: setattr(c, "undo_button_label", ""))
-    assert_invalid(lambda c: setattr(c, "remove_button_label", ""))
     assert_invalid(lambda c: setattr(c, "add_button_label", ""))
     assert_invalid(lambda c: setattr(c, "auto_detect_button_label", ""))
     assert_invalid(lambda c: setattr(c, "export_button_label", ""))
     assert_invalid(lambda c: setattr(c, "chapter_title_prefix", ""))
     assert_invalid(lambda c: setattr(c, "no_chapters_title", ""))
-    assert_invalid(lambda c: setattr(c, "no_chapters_message", ""))
     assert_invalid(lambda c: setattr(c, "error_dialog_title", ""))
     assert_invalid(lambda c: setattr(c, "success_dialog_title", ""))
     assert_invalid(lambda c: setattr(c, "success_dialog_message_template", ""))
-    assert_invalid(lambda c: setattr(c, "button_row_padding", -1))
-    assert_invalid(lambda c: setattr(c, "export_button_padding", -1))
 
 
 def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
-    """Verify validators reject representative invalid values.
-
-    Summary:
-        Increase coverage for error branches and keep messages actionable.
-    Ties to other methods:
-        Covers validate methods across non-UI config sections.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify validators reject representative invalid values."""
     with pytest.raises(ConfigurationError):
         AppConfig(title="", environment="test", correlation_id_prefix="cid").validate(
             "tests.unit.test_config_schema_validation"
@@ -309,22 +243,8 @@ def test_other_section_validators_fail_fast(tmp_path: Path) -> None:
         )
 
 
-def test_ui_config_validation_catches_preview_and_prompt_invariants() -> None:
-    """Verify UIConfig validates prompt and PDF preview-specific invariants.
-
-    Summary:
-        Cover remaining UI validation branches for prompt/preview constraints.
-    Ties to other methods:
-        Covers chapter_splitter.config.schema.sections.ui.UIConfig.validate.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+def test_ui_config_validation_catches_prompt_and_theme_invariants() -> None:
+    """Verify UIConfig validates conditional prompts and color mode."""
 
     def assert_invalid(mutator: Callable[[UIConfig], None]) -> None:
         cfg = _valid_ui()
@@ -332,45 +252,16 @@ def test_ui_config_validation_catches_preview_and_prompt_invariants() -> None:
         with pytest.raises(ConfigurationError):
             cfg.validate("tests.unit.test_config_schema_validation")
 
-    assert_invalid(lambda c: setattr(c, "open_pdf_button_label", ""))
     assert_invalid(lambda c: setattr(c, "close_button_label", ""))
-    assert_invalid(lambda c: setattr(c, "column_widths", (0,)))
-    assert_invalid(lambda c: setattr(c, "grid_header_labels", ("Title", "Start")))
     assert_invalid(lambda c: setattr(c, "confirm_auto_detect_overwrite_title", ""))
     assert_invalid(lambda c: setattr(c, "confirm_auto_detect_overwrite_message", ""))
     assert_invalid(lambda c: setattr(c, "open_output_dir_prompt_title", ""))
     assert_invalid(lambda c: setattr(c, "open_output_dir_prompt_message_template", ""))
-    assert_invalid(lambda c: setattr(c, "status_hint", ""))
     assert_invalid(lambda c: setattr(c, "color_mode", "bad"))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_zoom", 0.0))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_fit_mode", "bad"))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_fit_padding_px", -1))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_supersample", 0))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_min_zoom", 0.0))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_min_zoom", 5.0))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_zoom_step", 0.0))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_cache_entries", -1))
-    assert_invalid(lambda c: setattr(c, "pdf_preview_render_timeout_seconds", 0.0))
-    assert_invalid(lambda c: setattr(c, "chapter_review_thumbnail_width", 79))
-    assert_invalid(lambda c: setattr(c, "chapter_review_columns", 0))
 
 
 def test_ui_config_allows_optional_prompt_fields_when_flags_are_disabled() -> None:
-    """Verify optional prompt fields can be empty when their feature flags are disabled.
-
-    Summary:
-        Cover non-error branches where optional prompt fields are intentionally skipped.
-    Ties to other methods:
-        Covers conditional branches in chapter_splitter.config.schema.sections.ui.UIConfig.validate.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify optional prompt fields can be empty when their feature flags are disabled."""
     cfg = _valid_ui()
     cfg.confirm_auto_detect_overwrite = False
     cfg.confirm_auto_detect_overwrite_title = ""
@@ -378,27 +269,11 @@ def test_ui_config_allows_optional_prompt_fields_when_flags_are_disabled() -> No
     cfg.prompt_open_output_dir_after_export = False
     cfg.open_output_dir_prompt_title = ""
     cfg.open_output_dir_prompt_message_template = ""
-    cfg.show_status_bar = False
-    cfg.status_hint = ""
     cfg.validate("tests.unit.test_config_schema_validation")
 
 
 def test_detection_config_validation_catches_remaining_error_branches() -> None:
-    """Verify DetectionConfig validation rejects malformed detection settings.
-
-    Summary:
-        Cover remaining detection validation branches including regex parsing failures.
-    Ties to other methods:
-        Covers chapter_splitter.config.schema.sections.detection.DetectionConfig.validate.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        Compiles regex patterns during validation.
-    Error handling:
-        - None.
-    """
+    """Verify DetectionConfig validation rejects malformed detection settings."""
 
     def assert_invalid(mutator: Callable[[DetectionConfig], None]) -> None:
         cfg = _valid_detection()
@@ -420,21 +295,7 @@ def test_detection_config_validation_catches_remaining_error_branches() -> None:
 
 
 def test_other_section_validators_cover_remaining_branches(tmp_path: Path) -> None:
-    """Verify section validators reject all remaining invalid parameter branches.
-
-    Summary:
-        Raise coverage for App/IO/Retry/Performance validators without altering behavior.
-    Ties to other methods:
-        Covers validate methods in app/io/retry/performance config sections.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify section validators reject all remaining invalid parameter branches."""
     with pytest.raises(ConfigurationError):
         AppConfig(title="ok", environment="", correlation_id_prefix="cid").validate(
             "tests.unit.test_config_schema_validation"

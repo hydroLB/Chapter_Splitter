@@ -20,21 +20,7 @@ BASELINE_PATH = Path("benchmarks/baseline.json")
 
 
 def test_split_performance_budget(tmp_path: Path) -> None:
-    """Verify split performance stays within the baseline budget.
-
-    Summary:
-        Guard against performance regressions in chapter splitting.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.splitting.splitter.split_pdf_into_chapters.
-    Inputs:
-        - tmp_path: Pytest provided temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Writes output files during benchmark execution.
-    Error handling:
-        - AssertionError: When the benchmark exceeds the baseline.
-    """
+    """Verify split performance stays within the baseline budget."""
     settings = load_settings(None, "tests.performance.test_benchmarks")
     pdf_path = create_sample_pdf(tmp_path / "bench.pdf", page_count=12, outline_titles=None)
     chapters = [
@@ -61,21 +47,7 @@ def test_split_performance_budget(tmp_path: Path) -> None:
     token = CancellationToken()
 
     def _run_once() -> None:
-        """Run a single split benchmark iteration.
-
-        Summary:
-            Execute the split operation once and record elapsed time.
-        Ties to other methods:
-            Used by test_split_performance_budget.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Writes and deletes output files.
-        Error handling:
-            - None.
-        """
+        """Run a single split benchmark iteration."""
         deadline = Deadline(settings.io.operation_timeout_seconds)
         start = time.perf_counter()
         outputs = split_pdf_into_chapters(
@@ -102,21 +74,7 @@ def test_split_performance_budget(tmp_path: Path) -> None:
     timings: list[float] = []
 
     def _record_timing(value: float) -> None:
-        """Record a timing measurement.
-
-        Summary:
-            Append a timing value to the local timings list.
-        Ties to other methods:
-            Used by test_split_performance_budget.
-        Inputs:
-            - value: Timing value in seconds.
-        Outputs:
-            - None.
-        Side effects:
-            Appends to the timings list.
-        Error handling:
-            - None.
-        """
+        """Record a timing measurement."""
         timings.append(value)
 
     for _ in range(settings.performance.benchmark_iterations):
@@ -130,21 +88,7 @@ def test_split_performance_budget(tmp_path: Path) -> None:
 
 
 def test_outline_detection_performance_budget(tmp_path: Path) -> None:
-    """Verify outline detection performance stays within baseline budget.
-
-    Summary:
-        Guard against regressions in outline detection.
-    Ties to other methods:
-        Covers chapter_splitter.pdf.detection.outlines.detect_chapters_from_outlines.
-    Inputs:
-        - tmp_path: Pytest provided temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Reads the PDF file during benchmark execution.
-    Error handling:
-        - AssertionError: When the benchmark exceeds the baseline.
-    """
+    """Verify outline detection performance stays within baseline budget."""
     settings = load_settings(None, "tests.performance.test_benchmarks")
     pdf_path = create_sample_pdf(
         tmp_path / "outlined.pdf",
@@ -177,21 +121,7 @@ def test_outline_detection_performance_budget(tmp_path: Path) -> None:
 
 
 def _load_baseline(path: Path) -> dict[str, float]:
-    """Load benchmark baseline values from disk.
-
-    Summary:
-        Provide benchmark baselines for performance tests.
-    Ties to other methods:
-        Used by performance tests in this module.
-    Inputs:
-        - path: Path to the baseline JSON file.
-    Outputs:
-        - Mapping of baseline metrics to float values.
-    Side effects:
-        Reads the baseline JSON file from disk.
-    Error handling:
-        - RuntimeError: When the baseline file cannot be read.
-    """
+    """Load benchmark baseline values from disk."""
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as exc:

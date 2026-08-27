@@ -14,9 +14,9 @@ updates:
     commit-message:
       prefix: "deps"
     allow:
-      - dependency-name: "pypdf"
+      - dependency-type: "direct"
     groups:
-      python-runtime:
+      python-direct:
         patterns:
           - "*"
   - package-ecosystem: "github-actions"

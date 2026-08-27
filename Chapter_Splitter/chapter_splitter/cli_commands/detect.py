@@ -64,6 +64,13 @@ def run_detect(
                 f"--toc-hint-page is required when --strategy toc.{context}",
             )
         )
+    if strategy == "toc" and toc_hint_page is not None and toc_hint_page < 1:
+        raise ChapterSplitterError(
+            format_error_message(
+                error_location,
+                f"--toc-hint-page must be at least 1 when --strategy toc.{context}",
+            )
+        )
 
     effective_out = out_path or pdf_path.with_suffix(".chapters.toml")
     deadline = Deadline(settings.io.operation_timeout_seconds)
@@ -87,6 +94,24 @@ def run_detect(
             location=location,
         ),
     )
+    if not report.chapters:
+        if strategy == "toc":
+            detail = (
+                "Forced TOC detection found no chapters. "
+                f"Verify --toc-hint-page {toc_hint_page} points at the first TOC page."
+            )
+        elif strategy == "outlines":
+            detail = (
+                "Forced outline detection found no chapters. "
+                "Verify the PDF contains bookmarks/outlines or try --strategy toc with "
+                "--toc-hint-page."
+            )
+        else:
+            detail = (
+                "Automatic detection found no chapters. Verify the PDF contains bookmarks or "
+                "a readable table of contents; try --strategy toc with --toc-hint-page."
+            )
+        raise ChapterSplitterError(format_error_message(error_location, f"{detail}{context}"))
     write_chapter_file_fn(
         effective_out,
         report.chapters,

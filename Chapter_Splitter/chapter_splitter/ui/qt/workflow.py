@@ -37,6 +37,10 @@ def workflow(settings: Settings, token: CancellationToken) -> None:
         ) from exc
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    shutdown_timer = QtCore.QTimer(app)
+    shutdown_timer.setInterval(100)
+    shutdown_timer.timeout.connect(lambda: app.quit() if token.is_cancelled() else None)
+    shutdown_timer.start()
     apply_theme(app=app, color_mode=settings.ui.color_mode)
     install_system_theme_listener(app=app, color_mode=settings.ui.color_mode)
 
@@ -48,7 +52,12 @@ def workflow(settings: Settings, token: CancellationToken) -> None:
     reader = load_reader(pdf_path, read_deadline, token, settings.retry, location)
     total_pages = get_total_pages(reader, location)
 
-    win = MainWindow(pdf_path=pdf_path, total_pages=total_pages, ui_config=settings.ui)
+    win = MainWindow(
+        pdf_path=pdf_path,
+        total_pages=total_pages,
+        ui_config=settings.ui,
+        validation_config=settings.validation,
+    )
     if not win.viewer().load_pdf(pdf_path):
         show_error_dialog(title=settings.ui.error_dialog_title, message="Unable to open PDF.")
         return

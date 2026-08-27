@@ -4,22 +4,17 @@ from __future__ import annotations
 
 import sys
 import types
-from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
 from chapter_splitter.cli import (
-    _optional_int,
-    _optional_path,
-    _optional_str,
-    _require_str,
     _run_detect,
     _run_split,
     gui_main,
     main,
 )
+from chapter_splitter.cli_commands import optional_int, optional_path, optional_str, require_str
 from chapter_splitter.config.schema import (
     AppConfig,
     DetectionConfig,
@@ -36,43 +31,8 @@ from chapter_splitter.core import (
     CancellationToken,
     ChapterDefinition,
     ChapterSplitterError,
+    ConfigurationError,
 )
-
-
-class _RecordingMetrics:
-    def __init__(self) -> None:
-        self.counters: list[tuple[str, int, Mapping[str, str] | None]] = []
-        self.observations: list[tuple[str, float, Mapping[str, str] | None]] = []
-
-    def increment(
-        self,
-        metric: str,
-        *,
-        value: int = 1,
-        tags: Mapping[str, str] | None = None,
-    ) -> None:
-        self.counters.append((metric, value, tags))
-
-    def observe(
-        self,
-        metric: str,
-        value: float,
-        *,
-        tags: Mapping[str, str] | None = None,
-    ) -> None:
-        self.observations.append((metric, value, tags))
-
-    @contextmanager
-    def timer(
-        self,
-        metric: str,
-        *,
-        tags: Mapping[str, str] | None = None,
-    ) -> Iterator[None]:
-        try:
-            yield
-        finally:
-            self.observe(metric, 0.0, tags=tags)
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -110,43 +70,19 @@ def _settings(tmp_path: Path) -> Settings:
         ui=UIConfig(
             window_width=1,
             window_height=1,
-            window_offset_x=0,
-            window_offset_y=0,
-            open_pdf_button_label="Open",
             close_button_label="Close",
-            row_limit=1,
-            base_height=1,
-            row_height=1,
-            height_threshold_rows=0,
-            rows_per_column=1,
-            column_widths=(1,),
-            header_rows=0,
-            grid_columns=4,
-            grid_entry_width=1,
-            grid_remove_button_width=1,
-            grid_padding_x=0,
-            grid_padding_y=0,
-            grid_frame_padding_x=0,
-            grid_frame_padding_y=0,
-            grid_header_labels=("a", "b", "c", "d"),
             undo_button_label="u",
-            remove_button_label="r",
             add_button_label="a",
             auto_detect_button_label="d",
             export_button_label="e",
             chapter_title_prefix="c",
             no_chapters_title="n",
-            no_chapters_message="n",
             error_dialog_title="e",
             success_dialog_title="s",
             success_dialog_message_template="{count}",
-            auto_open_viewer=False,
             action_rate_limit_seconds=0.0,
             chapter_window_title="w",
             file_dialog_title="f",
-            button_row_padding=0,
-            button_gap_padding=0,
-            export_button_padding=0,
             confirm_auto_detect_overwrite=False,
             confirm_auto_detect_overwrite_title="t",
             confirm_auto_detect_overwrite_message="m",
@@ -154,22 +90,7 @@ def _settings(tmp_path: Path) -> Settings:
             open_output_dir_prompt_title="t",
             open_output_dir_prompt_message_template="m {count} {output_dir}",
             enable_keyboard_shortcuts=False,
-            show_status_bar=True,
-            status_hint="hint",
             color_mode="auto",
-            enable_pdf_preview=False,
-            pdf_preview_zoom=1.0,
-            pdf_preview_fit_mode="none",
-            pdf_preview_fit_padding_px=0,
-            pdf_preview_continuous_scroll=True,
-            pdf_preview_supersample=1,
-            pdf_preview_min_zoom=0.25,
-            pdf_preview_max_zoom=4.0,
-            pdf_preview_zoom_step=0.1,
-            pdf_preview_cache_entries=0,
-            pdf_preview_render_timeout_seconds=1.0,
-            chapter_review_thumbnail_width=120,
-            chapter_review_columns=1,
             auto_show_review_after_detect=False,
             auto_detect_on_open=False,
         ),
@@ -196,111 +117,48 @@ def _settings(tmp_path: Path) -> Settings:
     )
 
 
-def test_require_str_rejects_invalid_values() -> None:
-    """Verify required string parsing rejects empty or non-string values.
+def test_cli_reports_package_version(capsys: pytest.CaptureFixture[str]) -> None:
+    """Expose a release-verifiable CLI version."""
+    with pytest.raises(SystemExit, match="0"):
+        main(["--version"])
+    assert capsys.readouterr().out == "chapter-splitter 0.1.0\n"
 
-    Summary:
-        Keep CLI argument validation strict and deterministic.
-    Ties to other methods:
-        Covers chapter_splitter.cli._require_str.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+
+def test_require_str_rejects_invalid_values() -> None:
+    """Verify required string parsing rejects empty or non-string values."""
     with pytest.raises(ChapterSplitterError):
-        _require_str(None, "name", "tests.unit.test_cli")
+        require_str(None, "name", "tests.unit.test_cli")
     with pytest.raises(ChapterSplitterError):
-        _require_str("", "name", "tests.unit.test_cli")
+        require_str("", "name", "tests.unit.test_cli")
 
 
 def test_optional_path_normalizes_values(tmp_path: Path) -> None:
-    """Verify optional path parsing supports None, Path, and string inputs.
-
-    Summary:
-        Keep parsing predictable for tests and entry points.
-    Ties to other methods:
-        Covers chapter_splitter.cli._optional_path.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
-    assert _optional_path(None, "p", "tests.unit.test_cli") is None
-    assert _optional_path(tmp_path, "p", "tests.unit.test_cli") == tmp_path
-    assert _optional_path("x.toml", "p", "tests.unit.test_cli") == Path("x.toml")
+    """Verify optional path parsing supports None, Path, and string inputs."""
+    assert optional_path(None, "p", "tests.unit.test_cli") is None
+    assert optional_path(tmp_path, "p", "tests.unit.test_cli") == tmp_path
+    assert optional_path("x.toml", "p", "tests.unit.test_cli") == Path("x.toml")
     with pytest.raises(ChapterSplitterError):
-        _optional_path(123, "p", "tests.unit.test_cli")
+        optional_path(123, "p", "tests.unit.test_cli")
 
 
 def test_optional_str_normalizes_values() -> None:
-    """Verify optional string parsing supports None and strings.
-
-    Summary:
-        Keep typed CLI parsing strict without leaking Any.
-    Ties to other methods:
-        Covers chapter_splitter.cli._optional_str.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
-    assert _optional_str(None, "s", "tests.unit.test_cli") is None
-    assert _optional_str("x", "s", "tests.unit.test_cli") == "x"
+    """Verify optional string parsing supports None and strings."""
+    assert optional_str(None, "s", "tests.unit.test_cli") is None
+    assert optional_str("x", "s", "tests.unit.test_cli") == "x"
     with pytest.raises(ChapterSplitterError):
-        _optional_str(123, "s", "tests.unit.test_cli")
+        optional_str(123, "s", "tests.unit.test_cli")
 
 
 def test_optional_int_normalizes_values() -> None:
-    """Verify optional integer parsing supports None and integers.
-
-    Summary:
-        Keep typed CLI parsing strict without leaking Any.
-    Ties to other methods:
-        Covers chapter_splitter.cli._optional_int.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
-    assert _optional_int(None, "i", "tests.unit.test_cli") is None
-    assert _optional_int(5, "i", "tests.unit.test_cli") == 5
+    """Verify optional integer parsing supports None and integers."""
+    assert optional_int(None, "i", "tests.unit.test_cli") is None
+    assert optional_int(5, "i", "tests.unit.test_cli") == 5
     with pytest.raises(ChapterSplitterError):
-        _optional_int("5", "i", "tests.unit.test_cli")
+        optional_int("5", "i", "tests.unit.test_cli")
 
 
 def test_run_split_fails_fast_when_cancelled(tmp_path: Path) -> None:
-    """Verify split fails fast when cancellation is already requested.
-
-    Summary:
-        Avoid doing IO when a shutdown is in progress.
-    Ties to other methods:
-        Covers chapter_splitter.cli._run_split cancellation guard.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Cancels a token.
-    Error handling:
-        - None.
-    """
+    """Verify split fails fast when cancellation is already requested."""
     token = CancellationToken()
     token.cancel("stop", "tests.unit.test_cli")
     with pytest.raises(CancellationError):
@@ -320,22 +178,7 @@ def test_run_split_applies_cli_overrides(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Verify split CLI flags override common IO settings without a config file.
-
-    Summary:
-        Keep one-off CLI runs ergonomic while preserving config defaults.
-    Ties to other methods:
-        Covers chapter_splitter.cli._run_split override wiring.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify split CLI flags override common IO settings without a config file."""
     settings = _settings(tmp_path)
     token = CancellationToken()
     out_dir = tmp_path / "out"
@@ -374,22 +217,7 @@ def test_run_split_applies_cli_overrides(
 def test_main_gui_path_returns_gui_exit_code(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Verify GUI subcommand delegates to the GUI entrypoint.
-
-    Summary:
-        Keep CLI behavior predictable while allowing a separate GUI workflow.
-    Ties to other methods:
-        Covers chapter_splitter.cli.main gui path.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Patches the GUI entrypoint.
-    Error handling:
-        - None.
-    """
+    """Verify GUI subcommand delegates to the GUI entrypoint."""
     expected_settings = _settings(tmp_path)
     monkeypatch.setattr(
         "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: expected_settings
@@ -413,22 +241,7 @@ def test_main_gui_path_returns_gui_exit_code(
 def test_gui_main_passes_injected_settings_to_app_main(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Verify gui_main forwards injected settings to the GUI app boundary.
-
-    Summary:
-        Ensure CLI-to-GUI handoff remains explicit and does not reload config implicitly.
-    Ties to other methods:
-        Covers chapter_splitter.cli.gui_main.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Injects a fake chapter_splitter.app module into sys.modules.
-    Error handling:
-        - None.
-    """
+    """Verify gui_main forwards injected settings to the GUI app boundary."""
     expected_settings = _settings(tmp_path)
     captured: dict[str, object] = {}
 
@@ -458,22 +271,7 @@ def test_gui_main_passes_injected_settings_to_app_main(
 def test_main_split_path_returns_split_exit_code(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Verify split subcommand delegates to the split workflow.
-
-    Summary:
-        Ensure the entrypoint wiring stays stable.
-    Ties to other methods:
-        Covers chapter_splitter.cli.main split path.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Patches config loading, signal registration, and split execution.
-    Error handling:
-        - None.
-    """
+    """Verify split subcommand delegates to the split workflow."""
     monkeypatch.setattr(
         "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
@@ -492,22 +290,7 @@ def test_main_split_path_returns_split_exit_code(
 def test_main_detect_path_returns_detect_exit_code(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Verify detect subcommand delegates to the detect workflow.
-
-    Summary:
-        Ensure the entrypoint wiring stays stable for chapter detection output.
-    Ties to other methods:
-        Covers chapter_splitter.cli.main detect path.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Patches config loading, signal registration, and detect execution.
-    Error handling:
-        - None.
-    """
+    """Verify detect subcommand delegates to the detect workflow."""
     monkeypatch.setattr(
         "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
@@ -524,21 +307,7 @@ def test_main_detect_path_returns_detect_exit_code(
 
 
 def test_run_detect_requires_toc_hint_for_toc_strategy(tmp_path: Path) -> None:
-    """Verify toc strategy requires a TOC hint page.
-
-    Summary:
-        Keep the toc-only strategy deterministic and avoid surprising scans.
-    Ties to other methods:
-        Covers chapter_splitter.cli._run_detect toc argument validation.
-    Inputs:
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify toc strategy requires a TOC hint page."""
     token = CancellationToken()
     with pytest.raises(ChapterSplitterError):
         _run_detect(
@@ -553,26 +322,133 @@ def test_run_detect_requires_toc_hint_for_toc_strategy(tmp_path: Path) -> None:
         )
 
 
+def test_run_detect_rejects_non_positive_toc_hint_for_toc_strategy(tmp_path: Path) -> None:
+    """Verify toc strategy rejects non-positive TOC hint pages."""
+    token = CancellationToken()
+    with pytest.raises(ChapterSplitterError, match="must be at least 1"):
+        _run_detect(
+            pdf_path=tmp_path / "a.pdf",
+            out_path=tmp_path / "chapters.toml",
+            strategy="toc",
+            toc_hint_page=0,
+            overwrite=False,
+            settings=_settings(tmp_path),
+            token=token,
+            location="tests.unit.test_cli",
+        )
+
+
+def test_run_detect_forced_toc_fails_when_no_chapters_are_found(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Verify forced TOC mode fails closed when no chapters are detected."""
+
+    class _EmptyReport:
+        strategy = "toc"
+        confidence = 0.0
+        chapters: list[ChapterDefinition] = []
+        warnings = ["hint page contained no TOC entries"]
+
+    token = CancellationToken()
+
+    monkeypatch.setattr("chapter_splitter.cli.detect_chapters", lambda **_kwargs: _EmptyReport())
+
+    with pytest.raises(ChapterSplitterError, match="Forced TOC detection found no chapters"):
+        _run_detect(
+            pdf_path=tmp_path / "a.pdf",
+            out_path=tmp_path / "chapters.toml",
+            strategy="toc",
+            toc_hint_page=2,
+            overwrite=False,
+            settings=_settings(tmp_path),
+            token=token,
+            location="tests.unit.test_cli",
+        )
+
+
+@pytest.mark.parametrize(
+    ("strategy", "toc_hint_page", "message"),
+    [
+        ("auto", None, "Automatic detection found no chapters"),
+        ("outlines", None, "Forced outline detection found no chapters"),
+        ("toc", 2, "Forced TOC detection found no chapters"),
+    ],
+)
+def test_run_detect_empty_result_never_writes_output(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    strategy: str,
+    toc_hint_page: int | None,
+    message: str,
+) -> None:
+    """Every detection strategy fails before writing an empty chapter map."""
+
+    class _EmptyReport:
+        confidence = 0.0
+        chapters: list[ChapterDefinition] = []
+        warnings = ["no candidates"]
+
+        def __init__(self, report_strategy: str) -> None:
+            self.strategy = report_strategy
+
+    write_called = False
+
+    def _write_stub(*_args: object, **_kwargs: object) -> None:
+        nonlocal write_called
+        write_called = True
+
+    monkeypatch.setattr(
+        "chapter_splitter.cli.detect_chapters",
+        lambda **_kwargs: _EmptyReport(strategy if strategy != "auto" else "none"),
+    )
+    monkeypatch.setattr("chapter_splitter.cli.write_chapter_file", _write_stub)
+
+    with pytest.raises(ChapterSplitterError, match=message):
+        _run_detect(
+            pdf_path=tmp_path / "a.pdf",
+            out_path=tmp_path / "chapters.toml",
+            strategy=strategy,
+            toc_hint_page=toc_hint_page,
+            overwrite=False,
+            settings=_settings(tmp_path),
+            token=CancellationToken(),
+            location="tests.unit.test_cli",
+        )
+
+    assert write_called is False
+    assert not (tmp_path / "chapters.toml").exists()
+
+
+def test_main_startup_configuration_errors_use_structured_exit_handling(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Verify startup failures still map through the CLI error contract."""
+    captured: dict[str, object] = {}
+
+    def _raise_config(*_args: object, **_kwargs: object) -> Settings:
+        raise ConfigurationError("bad config")
+
+    def _log_event_stub(*args: object, **_kwargs: object) -> None:
+        if len(args) >= 5:
+            captured["fields"] = args[4]
+
+    monkeypatch.setattr("chapter_splitter.cli.load_settings", _raise_config)
+    monkeypatch.setattr("chapter_splitter.cli.log_event", _log_event_stub)
+
+    assert main(["split", "--pdf", "a.pdf", "--chapters", "c.toml"]) == 1
+    fields = captured["fields"]
+    assert isinstance(fields, dict)
+    assert fields["error_code"] == "CHAPTER_SPLITTER_CONFIGURATION"
+    assert fields["exit_code"] == 1
+
+
 def test_main_split_path_maps_cancellation_to_130(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Verify cancellation maps to exit code 130.
-
-    Summary:
-        Use a standard exit code for SIGINT-like cancellation.
-    Ties to other methods:
-        Covers CancellationError handling in chapter_splitter.cli.main.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Patches split execution to raise CancellationError.
-    Error handling:
-        - None.
-    """
+    """Verify cancellation maps to exit code 130."""
     monkeypatch.setattr(
         "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
@@ -607,22 +483,7 @@ def test_main_split_path_maps_domain_error_to_1(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Verify domain errors map to exit code 1.
-
-    Summary:
-        Ensure predictable error signaling for scripts and CI.
-    Ties to other methods:
-        Covers ChapterSplitterError handling in chapter_splitter.cli.main.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Patches split execution to raise ChapterSplitterError.
-    Error handling:
-        - None.
-    """
+    """Verify domain errors map to exit code 1."""
     monkeypatch.setattr(
         "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
     )
@@ -640,55 +501,3 @@ def test_main_split_path_maps_domain_error_to_1(
 
     monkeypatch.setattr("chapter_splitter.cli._run_split", raise_error)
     assert main(["split", "--pdf", "a.pdf", "--chapters", "c.toml"]) == 1
-
-
-def test_main_split_records_metrics_hooks(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    """Verify CLI boundaries emit counter and timer metrics for command execution.
-
-    Summary:
-        Ensure metrics hooks are exercised without requiring a concrete backend.
-    Ties to other methods:
-        Covers metrics instrumentation in chapter_splitter.cli.main.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-        - tmp_path: Pytest temporary directory.
-    Outputs:
-        - None.
-    Side effects:
-        Records in-memory metrics events.
-    Error handling:
-        - None.
-    """
-    recorder = _RecordingMetrics()
-    monkeypatch.setattr(
-        "chapter_splitter.cli.load_settings", lambda *_args, **_kwargs: _settings(tmp_path)
-    )
-    monkeypatch.setattr("chapter_splitter.cli.configure_logging", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        "chapter_splitter.cli.new_correlation_id", lambda *_args, **_kwargs: "cid-1"
-    )
-    monkeypatch.setattr("chapter_splitter.cli.set_correlation_id", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        "chapter_splitter.cli.register_signal_handlers", lambda *_args, **_kwargs: None
-    )
-    monkeypatch.setattr("chapter_splitter.cli._run_split", lambda *_args, **_kwargs: 0)
-
-    assert main(["split", "--pdf", "a.pdf", "--chapters", "c.toml"], metrics=recorder) == 0
-    assert (
-        "chapter_splitter.cli.command_total",
-        1,
-        {"command": "split", "result": "started"},
-    ) in recorder.counters
-    assert (
-        "chapter_splitter.cli.command_total",
-        1,
-        {"command": "split", "result": "success"},
-    ) in recorder.counters
-    assert (
-        "chapter_splitter.cli.command_seconds",
-        0.0,
-        {"command": "split"},
-    ) in recorder.observations

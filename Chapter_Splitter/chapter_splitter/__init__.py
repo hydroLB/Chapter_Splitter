@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .config import Settings, load_config
-from .config.loader import load_settings
+from ._version import __version__
+from .config import Settings, load_settings
 from .core import (
     CancellationError,
     CancellationToken,
@@ -26,6 +26,7 @@ from .pdf import (
 )
 
 __all__ = [
+    "__version__",
     "CancellationError",
     "CancellationToken",
     "ChapterDefinition",
@@ -43,7 +44,6 @@ __all__ = [
     "detect_chapters",
     "detect_chapters_from_outlines",
     "load_chapter_file",
-    "load_config",
     "load_settings",
     "split_pdf_into_chapters",
     "write_chapter_file",

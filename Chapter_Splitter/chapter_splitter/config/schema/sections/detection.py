@@ -9,21 +9,7 @@ from ....core.errors import ConfigurationError, format_error_message
 
 
 class DetectionConfig:
-    """Detection configuration for chapter inference.
-
-    Summary:
-        Centralize knobs for fallback chapter detection when outline metadata is unavailable.
-    Ties to other methods:
-        Used by TOC-based detection in chapter_splitter.pdf.detection.toc.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Detection configuration for chapter inference."""
 
     def __init__(
         self,
@@ -39,31 +25,7 @@ class DetectionConfig:
         outline_merge_tiny_max_pages: int,
         outline_merge_tiny_title_joiner: str,
     ) -> None:
-        """Initialize detection configuration.
-
-        Summary:
-            Provide validated knobs for TOC fallback parsing.
-        Ties to other methods:
-            Loaded via the config loader and validated in Settings.validate.
-        Inputs:
-            - enable_toc_fallback: Whether TOC parsing fallback is enabled.
-            - toc_auto_scan_max_start_page: Highest page number considered as a TOC start candidate.
-            - toc_scan_max_pages: Maximum number of pages to scan for TOC entries.
-            - toc_entry_regexes: Regex patterns that must expose groups named 'title' and 'page'.
-            - toc_ignore_title_regexes: Regex patterns for titles to ignore during parsing.
-            - toc_min_entries: Minimum number of entries required to accept a parsed TOC.
-            - toc_max_entries: Maximum number of entries to keep from a parsed TOC.
-            - outline_ignore_title_regexes: Regex patterns for outline titles to ignore.
-            - outline_min_depth: Minimum outline depth to consider when choosing chapter entries.
-            - outline_merge_tiny_max_pages: Merge outline-derived chapters with <= this many pages.
-            - outline_merge_tiny_title_joiner: Joiner used when merging outline chapter titles.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Initialize detection configuration."""
         self.enable_toc_fallback = enable_toc_fallback
         self.toc_auto_scan_max_start_page = toc_auto_scan_max_start_page
         self.toc_scan_max_pages = toc_scan_max_pages
@@ -77,21 +39,7 @@ class DetectionConfig:
         self.outline_merge_tiny_title_joiner = outline_merge_tiny_title_joiner
 
     def validate(self, location: str) -> None:
-        """Validate detection configuration.
-
-        Summary:
-            Ensure regex patterns compile and numeric limits are consistent.
-        Ties to other methods:
-            Called by Settings.validate before detection logic uses the configuration.
-        Inputs:
-            - location: Fully qualified module and method name.
-        Outputs:
-            - None.
-        Side effects:
-            Compiles regex patterns to validate.
-        Error handling:
-            - ConfigurationError: When configuration values are invalid.
-        """
+        """Validate detection configuration."""
         error_location = f"{__name__}.DetectionConfig.validate"
         context = f" Context: {location}." if location else ""
         if self.toc_auto_scan_max_start_page < 1:

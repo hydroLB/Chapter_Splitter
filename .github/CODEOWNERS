@@ -1,11 +1,11 @@
 # Default owner for all repository files
-* @liamsamson
+* @hydroLB
 
 # Core product areas
-/Chapter_Splitter/chapter_splitter/ @liamsamson
-/tests/ @liamsamson
-/scripts/ @liamsamson
+/Chapter_Splitter/chapter_splitter/ @hydroLB
+/tests/ @hydroLB
+/scripts/ @hydroLB
 
 # Governance and automation
-/.github/ @liamsamson
-/*.md @liamsamson
+/.github/ @hydroLB
+/*.md @hydroLB

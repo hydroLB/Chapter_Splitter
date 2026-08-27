@@ -1,21 +1,4 @@
-"""Qt theme and style helpers.
-
-Summary:
-    Provide a semantic design system for the Qt GUI (tokens, color modes, and control states)
-    and apply one application-wide stylesheet so widgets never rely on host defaults.
-Inputs:
-    - None.
-Outputs:
-    - None.
-Side effects:
-    Applies a QPalette and a Qt style sheet to the QApplication.
-Error handling:
-    Uses best-effort defaults and avoids raising from theme application.
-Ties to other methods:
-    Called by ui.qt.workflow before creating windows.
-Why this exists:
-    A centralized semantic theme prevents visual drift and keeps light/dark tuning maintainable.
-"""
+"""Qt theme and style helpers."""
 
 from __future__ import annotations
 
@@ -30,25 +13,7 @@ ResolvedColorMode = Literal["light", "dark"]
 
 @dataclass(frozen=True, slots=True)
 class ThemeTokens:
-    """Theme tokens for the Qt GUI.
-
-    Summary:
-        Collect semantic tokens for all surfaces, text roles, borders, states, and controls.
-    Inputs:
-        - colors: Mapping of semantic color roles to hex values.
-        - radius: Primary corner radius.
-        - compact_radius: Corner radius for compact controls.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        None.
-    Ties to other methods:
-        Used by resolve_color, build_stylesheet, and apply_theme.
-    Why this exists:
-        Semantic tokens keep styling consistent while preserving flexibility for future expansion.
-    """
+    """Theme tokens for the Qt GUI."""
 
     colors: Mapping[str, str]
     radius: int
@@ -56,23 +21,7 @@ class ThemeTokens:
 
 
 def default_tokens() -> ThemeTokens:
-    """Return default light-mode tokens.
-
-    Summary:
-        Provide a balanced light palette with explicit semantics for every role.
-    Inputs:
-        - None.
-    Outputs:
-        - ThemeTokens for light mode.
-    Side effects:
-        None.
-    Error handling:
-        None.
-    Ties to other methods:
-        Used by _tokens_for_mode.
-    Why this exists:
-        Light mode must stay readable with softened non-primary colors.
-    """
+    """Return default light-mode tokens."""
     return ThemeTokens(
         colors={
             "surface.app": "#eef2f6",
@@ -143,23 +92,7 @@ def default_tokens() -> ThemeTokens:
 
 
 def default_dark_tokens() -> ThemeTokens:
-    """Return default dark-mode tokens.
-
-    Summary:
-        Provide a high-contrast dark palette with separate semantic tuning.
-    Inputs:
-        - None.
-    Outputs:
-        - ThemeTokens for dark mode.
-    Side effects:
-        None.
-    Error handling:
-        None.
-    Ties to other methods:
-        Used by _tokens_for_mode.
-    Why this exists:
-        Dark mode must remain legible while preserving a softer non-primary surface hierarchy.
-    """
+    """Return default dark-mode tokens."""
     return ThemeTokens(
         colors={
             "surface.app": "#0c1117",
@@ -230,45 +163,12 @@ def default_dark_tokens() -> ThemeTokens:
 
 
 def resolve_color(*, tokens: ThemeTokens, role: str) -> str:
-    """Resolve a semantic color role.
-
-    Summary:
-        Return one color value for a semantic role from the active token set.
-    Inputs:
-        - tokens: Active theme token set.
-        - role: Semantic role key such as "surface.panel" or "text.hint".
-    Outputs:
-        - Hex or rgba color string.
-    Side effects:
-        None.
-    Error handling:
-        Falls back to a visible debug color when a role is missing.
-    Ties to other methods:
-        Used by build_stylesheet and apply_theme for every color lookup.
-    Why this exists:
-        A single resolver guarantees widgets do not use host defaults or ad-hoc color literals.
-    """
+    """Resolve a semantic color role."""
     return str(tokens.colors.get(role, "#ff00ff"))
 
 
 def build_stylesheet(tokens: ThemeTokens) -> str:
-    """Build a Qt stylesheet from semantic tokens.
-
-    Summary:
-        Generate one QSS ruleset with semantic roles for text, containers, controls, and states.
-    Inputs:
-        - tokens: Theme token set.
-    Outputs:
-        - QSS string.
-    Side effects:
-        None.
-    Error handling:
-        Returns an empty string when tokens are invalid.
-    Ties to other methods:
-        Used by apply_theme.
-    Why this exists:
-        Keeping all visual behavior in one stylesheet prevents drift and simplifies tuning.
-    """
+    """Build a Qt stylesheet from semantic tokens."""
     if not isinstance(tokens, ThemeTokens):
         return ""
 
@@ -615,23 +515,7 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
 
 
 def _system_color_scheme() -> ResolvedColorMode:
-    """Return the OS color scheme for auto theme selection.
-
-    Summary:
-        Query Qt style hints for the current system color scheme.
-    Inputs:
-        - None.
-    Outputs:
-        - 'dark' or 'light'.
-    Side effects:
-        Imports Qt modules.
-    Error handling:
-        Returns 'light' when the scheme cannot be detected.
-    Ties to other methods:
-        Used by _resolve_color_mode and install_system_theme_listener.
-    Why this exists:
-        Auto mode must track OS-level dark mode preference.
-    """
+    """Return the OS color scheme for auto theme selection."""
     try:
         from PySide6 import QtCore, QtGui
 
@@ -644,23 +528,7 @@ def _system_color_scheme() -> ResolvedColorMode:
 
 
 def _resolve_color_mode(color_mode: ColorMode) -> ResolvedColorMode:
-    """Resolve the requested color mode to a concrete light or dark mode.
-
-    Summary:
-        Expand the user-facing color mode setting into the active runtime mode.
-    Inputs:
-        - color_mode: Requested mode (light, dark, auto).
-    Outputs:
-        - Concrete resolved mode (light or dark).
-    Side effects:
-        Reads OS color scheme in auto mode.
-    Error handling:
-        Falls back to light mode for unsupported values.
-    Ties to other methods:
-        Used by apply_theme.
-    Why this exists:
-        Theme application and palette generation need a deterministic mode.
-    """
+    """Resolve the requested color mode to a concrete light or dark mode."""
     if color_mode == "light":
         return "light"
     if color_mode == "dark":
@@ -671,44 +539,12 @@ def _resolve_color_mode(color_mode: ColorMode) -> ResolvedColorMode:
 
 
 def _tokens_for_mode(mode: ResolvedColorMode) -> ThemeTokens:
-    """Return tokens for a resolved color mode.
-
-    Summary:
-        Provide a token set tailored to the active light or dark mode.
-    Inputs:
-        - mode: Resolved mode.
-    Outputs:
-        - ThemeTokens instance.
-    Side effects:
-        None.
-    Error handling:
-        Falls back to light tokens for unknown modes.
-    Ties to other methods:
-        Used by apply_theme.
-    Why this exists:
-        Mode-specific token lookup should stay in one location.
-    """
+    """Return tokens for a resolved color mode."""
     return default_dark_tokens() if mode == "dark" else default_tokens()
 
 
 def _preferred_style_name(*, available_styles: list[str]) -> str:
-    """Return the preferred Qt widget style for the current platform.
-
-    Summary:
-        Prefer native rounded controls where available and fall back safely.
-    Inputs:
-        - available_styles: Styles reported by QStyleFactory.
-    Outputs:
-        - Selected style name.
-    Side effects:
-        Reads the host platform name.
-    Error handling:
-        Falls back to Fusion when no styles are available.
-    Ties to other methods:
-        Used by apply_theme before setting palette and stylesheet.
-    Why this exists:
-        Native style improves baseline control quality, especially on macOS.
-    """
+    """Return the preferred Qt widget style for the current platform."""
     if not available_styles:
         return "Fusion"
 
@@ -723,24 +559,7 @@ def _preferred_style_name(*, available_styles: list[str]) -> str:
 
 
 def apply_theme(*, app: object, color_mode: ColorMode = "auto") -> None:
-    """Apply the configured theme mode to a Qt application.
-
-    Summary:
-        Select a widget style, build the token set, and apply palette plus stylesheet globally.
-    Inputs:
-        - app: QApplication instance.
-        - color_mode: Preferred mode (light, dark, auto).
-    Outputs:
-        - None.
-    Side effects:
-        Mutates QApplication style, palette, stylesheet, and app properties.
-    Error handling:
-        Best-effort only; no exceptions escape from this function.
-    Ties to other methods:
-        Called by ui.qt.workflow.workflow and the theme-change listener.
-    Why this exists:
-        The UI must be deterministic across platforms and independent of host defaults.
-    """
+    """Apply the configured theme mode to a Qt application."""
     try:
         from PySide6 import QtGui, QtWidgets
 
@@ -800,24 +619,7 @@ def apply_theme(*, app: object, color_mode: ColorMode = "auto") -> None:
 
 
 def install_system_theme_listener(*, app: object, color_mode: ColorMode = "auto") -> None:
-    """Install an OS theme change listener that re-applies theme tokens.
-
-    Summary:
-        Subscribe to Qt's colorSchemeChanged signal so auto mode follows system light or dark.
-    Inputs:
-        - app: QApplication instance.
-        - color_mode: Preferred mode (light, dark, auto).
-    Outputs:
-        - None.
-    Side effects:
-        Connects a signal handler and stores a reference on the app to keep it alive.
-    Error handling:
-        No-ops when Qt style hints are unavailable or mode is not auto.
-    Ties to other methods:
-        Called by ui.qt.workflow after creating the QApplication.
-    Why this exists:
-        Auto mode should react instantly when OS appearance changes.
-    """
+    """Install an OS theme change listener that re-applies theme tokens."""
     if color_mode != "auto":
         return
     try:

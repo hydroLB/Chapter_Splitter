@@ -1,22 +1,8 @@
-"""Review panel widget for the Qt GUI.
-
-Summary:
-    Provide a clean, read-only view of the current chapter list and export readiness.
-Inputs:
-    - None.
-Outputs:
-    - ReviewPanelWidget instance.
-Side effects:
-    Creates Qt widgets.
-Error handling:
-    Uses best-effort rendering and avoids raising during refresh.
-Ties to other methods:
-    Embedded by MainWindow on the Export tab.
-Why this exists:
-    The user needs a clear "done" step that summarizes chapters before export.
-"""
+"""Review panel widget for the Qt GUI."""
 
 from __future__ import annotations
+
+from typing import Any, cast
 
 from PySide6 import QtGui, QtWidgets
 
@@ -24,64 +10,15 @@ from ....core.models import ChapterDefinition
 
 
 class ReviewPanelWidget(QtWidgets.QWidget):
-    """Export review panel widget.
-
-    Summary:
-        Render a compact summary and list of chapters, plus inline validation feedback.
-    Inputs:
-        - parent: Optional Qt parent widget.
-    Outputs:
-        - QWidget instance.
-    Side effects:
-        Allocates labels and a list widget.
-    Error handling:
-        Avoids raising for empty or invalid chapter data.
-    Ties to other methods:
-        Used by MainWindow to render the Export tab content.
-    Why this exists:
-        A dedicated review panel keeps MainWindow layout code small and makes the flow clearer.
-    """
+    """Export review panel widget."""
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
-        """Initialize the review panel.
-
-        Summary:
-            Build the widget tree for summary, errors, and chapter list.
-        Inputs:
-            - parent: Optional Qt parent widget.
-        Outputs:
-            - None.
-        Side effects:
-            Creates child widgets and layouts.
-        Error handling:
-            None.
-        Ties to other methods:
-            Calls _build to construct the UI.
-        Why this exists:
-            The Export tab should remain lightweight and consistent.
-        """
+        """Initialize the review panel."""
         super().__init__(parent)
         self._build()
 
     def set_state(self, *, chapters: list[ChapterDefinition], errors: list[str]) -> None:
-        """Update panel content from chapter state.
-
-        Summary:
-            Render the chapter list and show inline validation errors when present.
-        Inputs:
-            - chapters: Chapter definitions to display.
-            - errors: Validation errors to display.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates label text and list contents.
-        Error handling:
-            Handles missing titles and invalid page values gracefully.
-        Ties to other methods:
-            Called by MainWindow whenever chapters change or export readiness is evaluated.
-        Why this exists:
-            The review view should always reflect the current editable table state.
-        """
+        """Update panel content from chapter state."""
         self._summary.setText(f"{len(chapters)} chapter(s)")
         if errors:
             self._error.setText("Fix these before exporting:\n- " + "\n- ".join(errors))
@@ -107,23 +44,7 @@ class ReviewPanelWidget(QtWidgets.QWidget):
             self._list.addItem(item)
 
     def _build(self) -> None:
-        """Build the review panel UI.
-
-        Summary:
-            Create header, summary, inline error label, and read-only list widgets.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Allocates and arranges Qt widgets.
-        Error handling:
-            None.
-        Ties to other methods:
-            Called by __init__.
-        Why this exists:
-            Keeping widget construction isolated makes it easy to restyle the Export tab later.
-        """
+        """Build the review panel UI."""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
@@ -138,17 +59,24 @@ class ReviewPanelWidget(QtWidgets.QWidget):
 
         self._summary = QtWidgets.QLabel("0 chapter(s)", self)
         self._summary.setProperty("text_role", "hint")
+        self._summary.setAccessibleName("Export summary")
         layout.addWidget(self._summary)
 
         self._error = QtWidgets.QLabel("", self)
         self._error.setVisible(False)
         self._error.setWordWrap(True)
         self._error.setProperty("error", "true")
+        self._error.setAccessibleName("Export validation errors")
         layout.addWidget(self._error)
 
         self._list = QtWidgets.QListWidget(self)
+        self._list.setAccessibleName("Chapters ready for export")
         self._list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
-        scrollbar_as_needed = int(getattr(QtGui.Qt, "ScrollBarAsNeeded", 0))
+        scrollbar_as_needed = getattr(
+            QtGui.Qt,
+            "ScrollBarAsNeeded",
+            cast(Any, QtGui.Qt).ScrollBarPolicy.ScrollBarAsNeeded,
+        )
         self._list.setHorizontalScrollBarPolicy(scrollbar_as_needed)
         self._list.setVerticalScrollBarPolicy(scrollbar_as_needed)
         self._list.setVisible(False)

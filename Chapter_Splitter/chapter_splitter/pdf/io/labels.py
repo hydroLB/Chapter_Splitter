@@ -9,22 +9,7 @@ from .dependencies import PdfReader
 
 
 def extract_page_labels(reader: PdfReader, location: str) -> list[str] | None:
-    """Return page labels when available.
-
-    Summary:
-        Map visible page labels to numeric pages for UI display.
-    Ties to other methods:
-        Used by the Qt GUI workflow to prefill labels.
-    Inputs:
-        - reader: PdfReader instance.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - List of labels or None when labels are not present.
-    Side effects:
-        None.
-    Error handling:
-        - PdfProcessingError: When labels are malformed or unavailable.
-    """
+    """Return page labels when available."""
     error_location = f"{__name__}.extract_page_labels"
     context = f" Context: {location}." if location else ""
     try:
@@ -48,29 +33,7 @@ def infer_page_offset_from_labels(
     min_sequential_numeric_labels: int,
     location: str,
 ) -> int | None:
-    """Infer a page offset from PDF page labels when they contain a numeric run.
-
-    Summary:
-        Help map user-facing page numbers to PDF page indices without manual configuration when a
-        PDF exposes page label metadata.
-    Ties to other methods:
-        Used by the split pipeline when io.infer_page_offset_from_labels is enabled.
-    Inputs:
-        - labels: Page labels indexed by the PDF's physical page order.
-        - min_sequential_numeric_labels: Minimum sequential labels required to accept a match.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - Inferred non-negative page_offset value, or None when inference is not possible.
-    Side effects:
-        None.
-    Error handling:
-        Raises PdfProcessingError when min_sequential_numeric_labels is invalid.
-    Ties to other methods:
-        Consumed by chapter_splitter.pdf.splitting.splitter.split_pdf_into_chapters.
-    Why this exists:
-        Many PDFs include front matter with Roman numerals and start numeric labeling later. When
-        labels are available, an inferred offset reduces user friction.
-    """
+    """Infer a page offset from PDF page labels when they contain a numeric run."""
     error_location = f"{__name__}.infer_page_offset_from_labels"
     context = f" Context: {location}." if location else ""
     if min_sequential_numeric_labels < 1:

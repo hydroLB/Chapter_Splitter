@@ -2,12 +2,10 @@
 
 ## Reporting a Vulnerability
 
-Do not open public issues for potential vulnerabilities.
+Do not disclose vulnerability details in public issues.
 
-Use one of the following private reporting paths:
-
-1. GitHub Security Advisory (preferred): open a private advisory in this repository.
-2. Maintainer email: include `SECURITY` in the subject and provide a private proof of concept.
+Use the repository's **Security → Report a vulnerability** form. Do not post exploit details,
+proofs of concept, secrets, or affected user data in a public issue.
 
 Include:
 
@@ -25,19 +23,19 @@ Include:
 
 ## Supported Versions
 
-Security fixes are provided for:
-
-- latest tagged release: full support
-- previous tagged release: best-effort critical fixes for 30 days after the next release
-
-Development branches and untagged snapshots are not guaranteed for security patch support.
+| Version | Supported |
+| --- | --- |
+| 0.1.x | Yes |
+| Earlier snapshots | No |
 
 ## Dependency and Secret Automation
 
 - Dependency update automation is configured with Dependabot in `.github/dependabot.yml`.
+- Dependabot is limited to direct Python dependencies, grouped monthly, with one open PR slot to keep update noise low while avoiding manual drift across dependency manifests.
 - CI runs repository secret scanning with `gitleaks` on every push/PR.
+- The repo-owned pre-push hook scans repository Git history with `gitleaks` before `make check`.
 - Local secret scanning can be run manually with pre-commit:
-  `pre-commit run gitleaks --all-files`.
+  `pre-commit run --hook-stage manual gitleaks --all-files`.
 - Threat model notes for critical local attack surfaces are documented in `docs/threat-model.md`.
 
 ## Local Security Workflow
@@ -46,7 +44,7 @@ Before opening a PR for security-sensitive changes, run:
 
 ```bash
 make security
-pre-commit run gitleaks --all-files
+pre-commit run --hook-stage manual gitleaks --all-files
 ```
 
 ## Operational Hardening Guidance

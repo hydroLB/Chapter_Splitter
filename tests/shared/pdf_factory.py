@@ -13,23 +13,7 @@ def create_sample_pdf(
     page_count: int,
     outline_titles: Sequence[str] | None,
 ) -> Path:
-    """Create a sample PDF for tests.
-
-    Summary:
-        Provide deterministic PDF fixtures for unit and integration tests.
-    Ties to other methods:
-        Used by tests in unit, integration, and performance suites.
-    Inputs:
-        - path: Destination path for the PDF.
-        - page_count: Number of pages to include.
-        - outline_titles: Optional list of outline titles.
-    Outputs:
-        - Path to the created PDF file.
-    Side effects:
-        Writes a PDF file to disk.
-    Error handling:
-        - ValueError: When page_count is less than 1.
-    """
+    """Create a sample PDF for tests."""
     if page_count < 1:
         raise ValueError("tests.shared.pdf_factory.create_sample_pdf requires page_count >= 1")
     writer = PdfWriter()

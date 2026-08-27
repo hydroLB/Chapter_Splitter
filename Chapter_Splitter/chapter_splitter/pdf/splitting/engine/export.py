@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
 
 from ....config.schema import IOConfig, RetryConfig, ValidationConfig
 from ....core.models import ChapterDefinition, ChapterOutput
 from ....core.runtime import CancellationToken
 from ....utils.timing import Deadline
-from .chapter_export import export_single_chapter
+from .chapter_export import stage_single_chapter
 from .collisions import resolve_output_paths
 from .models import ChapterExportProgress
 from .preparation import (
@@ -18,6 +19,7 @@ from .preparation import (
     validate_offset_ranges,
 )
 from .source import load_source_document, resolve_effective_page_offset
+from .writer import StagedPdf, cleanup_staged_pdfs, commit_pdf_batch
 
 
 def split_pdf_into_chapters(
@@ -34,34 +36,7 @@ def split_pdf_into_chapters(
     *,
     on_progress: Callable[[ChapterExportProgress], None] | None = None,
 ) -> list[ChapterOutput]:
-    """Split a PDF into chapter files.
-
-    Summary:
-        Validate chapters, resolve export destinations, and write one PDF per chapter.
-    Inputs:
-        - pdf_path: Path to the source PDF.
-        - chapters: List of ChapterDefinition objects.
-        - page_offset: Optional offset applied when converting to zero-based indices.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - retry_config: Retry policy for PDF loading.
-        - validation_config: Validation rules for chapters.
-        - io_config: IO configuration for output behavior.
-        - location: Fully qualified module and method name.
-        - output_dir: Optional output directory override.
-        - on_progress: Optional progress callback receiving per-chapter start and complete events.
-    Outputs:
-        - List of ChapterOutput objects with exported paths.
-    Side effects:
-        Reads the source PDF and writes chapter files to disk.
-    Error handling:
-        Raises IO, PDF processing, or validation errors when export cannot complete safely.
-    Ties to other methods:
-        Delegates source loading, validation, path resolution, and per-chapter writes to helper
-        modules within the engine package.
-    Why this exists:
-        The UI and CLI need one deterministic export pipeline with shared validation rules.
-    """
+    """Split a PDF into chapter files."""
     token.check(location)
     reader, total_pages = load_source_document(
         pdf_path=pdf_path,
@@ -84,6 +59,10 @@ def split_pdf_into_chapters(
         validation_config=validation_config,
         location=location,
     )
+    planned_output_dir = output_dir or (
+        pdf_path.parent / f"{pdf_path.stem}{io_config.output_dir_suffix}"
+    )
+    output_dir_existed = planned_output_dir.exists()
     effective_output_dir = prepare_output_directory(
         pdf_path=pdf_path,
         io_config=io_config,
@@ -99,10 +78,11 @@ def split_pdf_into_chapters(
     out_paths = resolve_output_paths(validated, effective_output_dir, io_config, location)
 
     outputs: list[ChapterOutput] = []
+    staged_pdfs: list[StagedPdf] = []
     total_chapters = len(validated)
-    for idx, (chapter, out_path) in enumerate(zip(validated, out_paths, strict=True), start=1):
-        outputs.append(
-            export_single_chapter(
+    try:
+        for idx, (chapter, out_path) in enumerate(zip(validated, out_paths, strict=True), start=1):
+            output, staged_pdf = stage_single_chapter(
                 reader=reader,
                 chapter=chapter,
                 output_path=out_path,
@@ -115,7 +95,20 @@ def split_pdf_into_chapters(
                 location=location,
                 on_progress=on_progress,
             )
+            outputs.append(output)
+            staged_pdfs.append(staged_pdf)
+        token.check(location)
+        deadline.check(location)
+        commit_pdf_batch(
+            staged_pdfs,
+            allow_overwrite=io_config.output_collision_policy == "overwrite",
         )
+    except BaseException:
+        cleanup_staged_pdfs(staged_pdfs, remove_backups=False)
+        if not output_dir_existed:
+            with suppress(OSError):
+                effective_output_dir.rmdir()
+        raise
     return outputs
 
 

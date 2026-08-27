@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 import tomllib
@@ -11,23 +12,7 @@ SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 
 
 def _repo_root() -> Path:
-    """Return repository root path.
-
-    Summary:
-        Resolve the repository root from this script location.
-    Inputs:
-        - None.
-    Outputs:
-        - Absolute repository root path.
-    Side effects:
-        Reads filesystem metadata.
-    Error handling:
-        Raises RuntimeError when expected files are not found under the computed root.
-    Ties to other methods:
-        Used by main as the base path for all release checks.
-    Why this exists:
-        Release checks must run consistently from any current working directory.
-    """
+    """Return repository root path."""
     root = Path(__file__).resolve().parents[1]
     if not (root / "pyproject.toml").exists():
         raise RuntimeError(
@@ -37,23 +22,7 @@ def _repo_root() -> Path:
 
 
 def _project_version(root: Path) -> str:
-    """Load project version from pyproject metadata.
-
-    Summary:
-        Read `pyproject.toml` and return the project version string.
-    Inputs:
-        - root: Repository root path.
-    Outputs:
-        - Version string from `[project].version`.
-    Side effects:
-        Reads `pyproject.toml`.
-    Error handling:
-        Raises RuntimeError when version metadata is missing or file parsing fails.
-    Ties to other methods:
-        Used by _validate_semver and _validate_changelog.
-    Why this exists:
-        The package version is the canonical source for release/version checks.
-    """
+    """Load project version from pyproject metadata."""
     pyproject_path = root / "pyproject.toml"
     try:
         raw = pyproject_path.read_bytes()
@@ -81,48 +50,14 @@ def _project_version(root: Path) -> str:
 
 
 def _validate_semver(version: str) -> list[str]:
-    """Validate semantic version format.
-
-    Summary:
-        Ensure the project version uses a simple `MAJOR.MINOR.PATCH` format.
-    Inputs:
-        - version: Version string extracted from pyproject metadata.
-    Outputs:
-        - List of validation errors.
-    Side effects:
-        None.
-    Error handling:
-        None.
-    Ties to other methods:
-        Called by main.
-    Why this exists:
-        A stable, parseable version format is required for repeatable release automation.
-    """
+    """Validate semantic version format."""
     if SEMVER_PATTERN.fullmatch(version):
         return []
     return [f"pyproject version must match MAJOR.MINOR.PATCH, got: {version!r}"]
 
 
 def _validate_changelog(root: Path, version: str) -> list[str]:
-    """Validate changelog structure and version entry presence.
-
-    Summary:
-        Ensure `CHANGELOG.md` contains both an `Unreleased` section and the current version
-        heading.
-    Inputs:
-        - root: Repository root path.
-        - version: Version string from pyproject metadata.
-    Outputs:
-        - List of validation errors.
-    Side effects:
-        Reads `CHANGELOG.md`.
-    Error handling:
-        Returns structured error strings for missing or unreadable files.
-    Ties to other methods:
-        Called by main.
-    Why this exists:
-        Releases need deterministic changelog conventions enforced in CI.
-    """
+    """Validate changelog structure and version entry presence."""
     changelog_path = root / "CHANGELOG.md"
     try:
         changelog = changelog_path.read_text(encoding="utf-8")
@@ -133,31 +68,35 @@ def _validate_changelog(root: Path, version: str) -> list[str]:
     if "## Unreleased" not in changelog:
         errors.append("CHANGELOG.md must include a '## Unreleased' section.")
     version_header = f"## {version}"
-    if version_header not in changelog:
+    if re.search(rf"^{re.escape(version_header)}(?:\s|$)", changelog, re.MULTILINE) is None:
         errors.append(
             f"CHANGELOG.md must include a heading for the current version ({version_header})."
         )
     return errors
 
 
-def _validate_release_artifacts(root: Path) -> list[str]:
-    """Validate required release process artifacts and policy sections.
+def _validate_runtime_version(root: Path, version: str) -> list[str]:
+    version_path = root / "Chapter_Splitter" / "chapter_splitter" / "_version.py"
+    try:
+        text = version_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"failed to read {version_path}: {exc}"]
+    match = re.search(r'^__version__ = "([^"]+)"$', text, re.MULTILINE)
+    if match is None or match.group(1) != version:
+        return [f"runtime __version__ must exactly match pyproject version {version}"]
+    return []
 
-    Summary:
-        Verify release template and policy documentation required by the release process.
-    Inputs:
-        - root: Repository root path.
-    Outputs:
-        - List of validation errors.
-    Side effects:
-        Reads release policy files.
-    Error handling:
-        Returns structured error strings for missing files or required sections.
-    Ties to other methods:
-        Called by main.
-    Why this exists:
-        Release process quality should be enforceable, not only documented.
-    """
+
+def _validate_release_tag(version: str) -> list[str]:
+    if os.environ.get("GITHUB_REF_TYPE") != "tag":
+        return []
+    expected = f"v{version}"
+    actual = os.environ.get("GITHUB_REF_NAME", "")
+    return [] if actual == expected else [f"release tag must be {expected}, got {actual!r}"]
+
+
+def _validate_release_artifacts(root: Path) -> list[str]:
+    """Validate required release process artifacts and policy sections."""
     errors: list[str] = []
 
     template_path = root / ".github" / "release_notes_template.md"
@@ -188,23 +127,7 @@ def _validate_release_artifacts(root: Path) -> list[str]:
 
 
 def main() -> int:
-    """Run release discipline checks and return process exit code.
-
-    Summary:
-        Execute deterministic release checks for versioning, changelog, and release policy files.
-    Inputs:
-        - None.
-    Outputs:
-        - Process exit code (0 for success, 1 for validation failures).
-    Side effects:
-        Reads repository files and writes status to stdout/stderr.
-    Error handling:
-        Handles RuntimeError from root/version resolution and reports actionable error details.
-    Ties to other methods:
-        Entry point that orchestrates all helper validation methods.
-    Why this exists:
-        CI should enforce release discipline to keep publishing repeatable and auditable.
-    """
+    """Run release discipline checks and return process exit code."""
     try:
         root = _repo_root()
         version = _project_version(root)
@@ -215,6 +138,8 @@ def main() -> int:
     errors: list[str] = []
     errors.extend(_validate_semver(version))
     errors.extend(_validate_changelog(root, version))
+    errors.extend(_validate_runtime_version(root, version))
+    errors.extend(_validate_release_tag(version))
     errors.extend(_validate_release_artifacts(root))
 
     if errors:

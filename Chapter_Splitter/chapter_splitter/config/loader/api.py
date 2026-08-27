@@ -12,22 +12,7 @@ from .toml.reader import read_toml_file
 
 
 def load_settings(config_path: Path | None, location: str) -> Settings:
-    """Load settings from the packaged defaults and an optional override file.
-
-    Summary:
-        Provide a single entry point for configuration loading and validation.
-    Ties to other methods:
-        Used by the config registry and all entry points.
-    Inputs:
-        - config_path: Optional path to a user provided TOML file.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - Settings object containing validated configuration.
-    Side effects:
-        Reads configuration files from disk.
-    Error handling:
-        - ConfigurationError: When files cannot be read or validation fails.
-    """
+    """Load settings from the packaged defaults and an optional override file."""
     default_data = read_default_settings(location)
     override_path = config_path or resolve_env_path(location)
     if override_path is not None:

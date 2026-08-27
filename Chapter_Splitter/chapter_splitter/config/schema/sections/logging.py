@@ -9,21 +9,7 @@ from ....core.errors import ConfigurationError, format_error_message
 
 
 class LoggingConfig:
-    """Structured logging configuration.
-
-    Summary:
-        Control log levels, outputs, and redaction behavior.
-    Ties to other methods:
-        Consumed by observability logging setup.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Structured logging configuration."""
 
     def __init__(
         self,
@@ -35,27 +21,7 @@ class LoggingConfig:
         redact_keys: Sequence[str],
         redact_values: Sequence[str],
     ) -> None:
-        """Initialize logging configuration.
-
-        Summary:
-            Define structured logging output and redaction behavior.
-        Ties to other methods:
-            Used by observability logging setup.
-        Inputs:
-            - level: Logging level name.
-            - formatter: Output format name.
-            - console_enabled: Enable console logging.
-            - file_enabled: Enable file logging.
-            - file_path: Path to the log file.
-            - redact_keys: Field names to redact from structured logs.
-            - redact_values: Substrings to redact from log messages.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Initialize logging configuration."""
         self.level = level
         self.formatter = formatter
         self.console_enabled = console_enabled
@@ -65,21 +31,7 @@ class LoggingConfig:
         self.redact_values = tuple(redact_values)
 
     def validate(self, location: str) -> None:
-        """Validate logging configuration.
-
-        Summary:
-            Ensure logging settings are coherent and safe.
-        Ties to other methods:
-            Called by Settings.validate prior to logging setup.
-        Inputs:
-            - location: Fully qualified module and method name.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - ConfigurationError: When logging settings are invalid.
-        """
+        """Validate logging configuration."""
         error_location = f"{__name__}.LoggingConfig.validate"
         context = f" Context: {location}." if location else ""
         if not self.level.strip():

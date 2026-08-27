@@ -1,51 +1,23 @@
-"""Chapter table widget for the Qt GUI.
-
-Summary:
-    Provide an editable table for chapter titles and page boundaries.
-Inputs:
-    - total_pages: Total page count for bounds validation.
-    - title_prefix: Default chapter title prefix for new rows.
-Outputs:
-    - ChaptersTableWidget instance.
-Side effects:
-    Creates Qt widgets and manages per-row editors.
-Error handling:
-    Guards invalid indices and returns safe defaults for missing state.
-Ties to other methods:
-    Used by MainWindow to store chapter definitions for detect/export flows.
-Why this exists:
-    Keeping the chapter table logic in one place prevents MainWindow from becoming a blob.
-"""
+"""Chapter table widget for the Qt GUI."""
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from PySide6 import QtCore, QtWidgets
 
+from ....config.schema import ValidationConfig
 from ....core.errors import UiError, format_error_message
 from ....core.models import ChapterDefinition
+from ...workflow_validation import (
+    export_readiness_errors,
+    validate_chapter_ranges_for_document,
+)
 from .chapter_models import ChapterRowWidgets
 
 
 class ChaptersTableWidget(QtWidgets.QWidget):
-    """Editable chapter table.
-
-    Summary:
-        Provide a compact table UI with add/remove and start/end edits.
-    Inputs:
-        - total_pages: Total pages of the document.
-        - title_prefix: Default title prefix.
-        - parent: Optional Qt parent widget.
-    Outputs:
-        - QWidget that exposes chapter mutation and extraction helpers.
-    Side effects:
-        Creates a QTableWidget and editor widgets.
-    Error handling:
-        Raises UiError for invalid constructor inputs.
-    Ties to other methods:
-        Used by MainWindow and wired to PDF viewer start/end actions.
-    Why this exists:
-        The chapter grid is a core surface area; it should be reusable and testable.
-    """
+    """Editable chapter table."""
 
     active_row_changed = QtCore.Signal(int)
     chapters_changed = QtCore.Signal()
@@ -55,6 +27,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         *,
         total_pages: int,
         title_prefix: str,
+        validation_config: ValidationConfig,
         parent: QtWidgets.QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -66,6 +39,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
 
         self._total_pages = int(total_pages)
         self._title_prefix = title_prefix
+        self._validation_config = validation_config
         self._rows: list[ChapterRowWidgets] = []
         self._pulse_timer = QtCore.QTimer(self)
         self._pulse_timer.setInterval(140)
@@ -75,9 +49,14 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         self._compact_mode = False
 
         self._table = QtWidgets.QTableWidget(0, 4, self)
+        self._table.setAccessibleName("Chapter definitions")
         self._table.setHorizontalHeaderLabels(["Chapter", "Start", "End", ""])
         self._table.verticalHeader().setVisible(False)
-        scrollbar_as_needed = int(getattr(QtCore.Qt, "ScrollBarAsNeeded", 0))
+        scrollbar_as_needed = getattr(
+            QtCore.Qt,
+            "ScrollBarAsNeeded",
+            cast(Any, QtCore.Qt).ScrollBarPolicy.ScrollBarAsNeeded,
+        )
         self._table.setHorizontalScrollBarPolicy(scrollbar_as_needed)
         self._table.setVerticalScrollBarPolicy(scrollbar_as_needed)
         self._table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
@@ -108,64 +87,16 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         self._pulse_timer.timeout.connect(self._on_pulse_tick)
 
     def table(self) -> QtWidgets.QTableWidget:
-        """Return the underlying QTableWidget.
-
-        Summary:
-            Expose the raw table widget for rare UI-level customization.
-        Inputs:
-            - None.
-        Outputs:
-            - QTableWidget instance.
-        Side effects:
-            None.
-        Error handling:
-            None.
-        Ties to other methods:
-            Used by MainWindow for layout and potential styling.
-        Why this exists:
-            Some Qt APIs require access to the native widget rather than a wrapper.
-        """
+        """Return the underlying QTableWidget."""
         return self._table
 
     def set_compact_mode(self, compact: bool) -> None:
-        """Apply compact row and header sizing.
-
-        Summary:
-            Reduce row and header heights in constrained layouts.
-        Inputs:
-            - compact: True for compact mode, otherwise False.
-        Outputs:
-            - None.
-        Side effects:
-            Updates table header height, row heights, and editor control heights.
-        Error handling:
-            Best-effort only; ignores per-widget sizing failures.
-        Ties to other methods:
-            Called by MainWindow density tuning.
-        Why this exists:
-            Smaller windows need tighter table density to preserve visible rows.
-        """
+        """Apply compact row and header sizing."""
         self._compact_mode = bool(compact)
         self._apply_row_and_header_metrics()
 
     def _apply_row_and_header_metrics(self) -> None:
-        """Apply table header and row geometry for current density.
-
-        Summary:
-            Keep header typography and row heights synchronized to prevent clipped headings.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates header size, default row height, and editor minimum heights.
-        Error handling:
-            Best-effort only; no-ops when metrics cannot be applied.
-        Ties to other methods:
-            Called by __init__ and set_compact_mode.
-        Why this exists:
-            Header text clipping occurs when font and section heights drift apart.
-        """
+        """Apply table header and row geometry for current density."""
         header_height = 28 if self._compact_mode else 32
         row_height = 34 if self._compact_mode else 38
         try:
@@ -188,24 +119,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             return
 
     def _compute_page_spin_width(self) -> int:
-        """Compute a compact width for page spinboxes.
-
-        Summary:
-            Size the start and end editors based on the total page count digit length so the
-            controls remain tight and the remove button has room.
-        Inputs:
-            - None.
-        Outputs:
-            - Pixel width integer for the QSpinBox widget.
-        Side effects:
-            None.
-        Error handling:
-            Returns a conservative width when font metrics are unavailable.
-        Ties to other methods:
-            Used during __init__ and row insertion to size spinboxes consistently.
-        Why this exists:
-            Oversized numeric inputs waste space and make the remove button feel cramped.
-        """
+        """Compute a compact width for page spinboxes."""
         try:
             digits = max(1, len(str(max(1, int(self._total_pages)))))
             sample = "9" * digits
@@ -217,47 +131,14 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             return 64
 
     def selected_row_index(self) -> int | None:
-        """Return the selected row index, if any.
-
-        Summary:
-            Determine which chapter row is currently selected.
-        Inputs:
-            - None.
-        Outputs:
-            - Row index integer or None.
-        Side effects:
-            None.
-        Error handling:
-            Returns None when selection cannot be resolved.
-        Ties to other methods:
-            Used by MainWindow to decide which row to mutate for Set Start/End.
-        Why this exists:
-            Chapter editing is row-based and selection state drives most actions.
-        """
+        """Return the selected row index, if any."""
         indexes = self._table.selectionModel().selectedRows()
         if not indexes:
             return None
         return int(indexes[0].row())
 
     def row_display_title(self, row_index: int) -> str:
-        """Return a user-facing title for a row.
-
-        Summary:
-            Provide a stable display string for UI labels and tooltips.
-        Inputs:
-            - row_index: Row index to query.
-        Outputs:
-            - Non-empty title string when possible, otherwise a fallback label.
-        Side effects:
-            None.
-        Error handling:
-            Returns a fallback string when row widgets are unavailable.
-        Ties to other methods:
-            Used by MainWindow to surface the active chapter context for Set Start/End.
-        Why this exists:
-            Embedded editor widgets can make row selection subtle; a top-level label reduces
-            ambiguity.
-        """
+        """Return a user-facing title for a row."""
         widgets = self._row_widgets(int(row_index))
         if widgets is None:
             return f"Chapter {int(row_index) + 1}"
@@ -265,23 +146,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         return title if title else f"Chapter {int(row_index) + 1}"
 
     def active_row_summary(self) -> tuple[int, str] | None:
-        """Return the active row index and a concise summary string.
-
-        Summary:
-            Provide a compact string like "Chapter 1 (1 to 3)" for header callouts.
-        Inputs:
-            - None.
-        Outputs:
-            - Tuple of (row_index, summary) or None when no row is selected.
-        Side effects:
-            None.
-        Error handling:
-            Returns None when state cannot be computed.
-        Ties to other methods:
-            Used by MainWindow to show which chapter Set Start/End will edit.
-        Why this exists:
-            Users need immediate context for boundary actions without hunting through the table.
-        """
+        """Return the active row index and a concise summary string."""
         row = self.selected_row_index()
         if row is None:
             return None
@@ -294,175 +159,52 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         return int(row), f"{title} ({start} to {end})"
 
     def row_count(self) -> int:
-        """Return the current row count.
-
-        Summary:
-            Provide a small helper to query whether any chapters exist.
-        Inputs:
-            - None.
-        Outputs:
-            - Row count integer.
-        Side effects:
-            None.
-        Error handling:
-            Returns 0 when table state cannot be queried.
-        Ties to other methods:
-            Used by MainWindow to decide whether export should be shown or enabled.
-        Why this exists:
-            The export step should remain hidden until at least one chapter exists.
-        """
+        """Return the current row count."""
         try:
             return int(self._table.rowCount())
         except Exception:
             return 0
 
     def export_readiness_errors(self) -> list[str]:
-        """Return a best-effort list of validation errors for export readiness.
-
-        Summary:
-            Perform lightweight UI validation without invoking the full core validation pipeline.
-        Inputs:
-            - None.
-        Outputs:
-            - List of human-readable error strings.
-        Side effects:
-            None.
-        Error handling:
-            Returns an empty list when errors cannot be computed.
-        Ties to other methods:
-            Used by MainWindow to disable Export until the user fixes obvious issues.
-        Why this exists:
-            Disabling export for obviously invalid input improves UX before running the pipeline.
-        """
-        errors: list[str] = []
-        if self.row_count() <= 0:
-            errors.append("Add at least one chapter.")
-            return errors
-        for idx, widgets in enumerate(self._rows, start=1):
-            title = widgets.title.text().strip()
-            if not title:
-                errors.append(f"Chapter {idx} title is empty.")
-            start = int(widgets.start.value())
-            end = int(widgets.end.value())
-            if start < 1 or end < 1:
-                errors.append(f"Chapter {idx} pages must be >= 1.")
-            if start > self._total_pages or end > self._total_pages:
-                errors.append(f"Chapter {idx} pages must be <= {self._total_pages}.")
-            if end < start:
-                errors.append(f"Chapter {idx} end page must be >= start page.")
-        return errors
+        """Return the core validation error that currently blocks export."""
+        return export_readiness_errors(
+            chapters=self.get_chapters(),
+            total_pages=self._total_pages,
+            validation_config=self._validation_config,
+            location=f"{__name__}.ChaptersTableWidget.export_readiness_errors",
+        )
 
     def is_ready_for_export(self) -> bool:
-        """Return True when chapters are ready for export.
-
-        Summary:
-            Provide a fast boolean check for enabling the Export action.
-        Inputs:
-            - None.
-        Outputs:
-            - True when export readiness has no errors, otherwise False.
-        Side effects:
-            None.
-        Error handling:
-            Returns False on unexpected failures.
-        Ties to other methods:
-            Used by MainWindow to set Export enabled state.
-        Why this exists:
-            The main export pipeline should not be invoked when the UI state is obviously invalid.
-        """
+        """Return True when chapters are ready for export."""
         try:
             return not self.export_readiness_errors()
         except Exception:
             return False
 
     def add_blank_chapter(self) -> int:
-        """Append a new blank chapter row.
-
-        Summary:
-            Add a new row with a default title and unset page boundaries.
-        Inputs:
-            - None.
-        Outputs:
-            - Row index of the created row.
-        Side effects:
-            Mutates the table model and creates editor widgets.
-        Error handling:
-            Raises UiError when widget creation fails.
-        Ties to other methods:
-            Called by MainWindow Add menu actions.
-        Why this exists:
-            Users frequently need to insert chapters manually.
-        """
+        """Append a new blank chapter row."""
         index = self._table.rowCount()
         title = f"{self._title_prefix} {index + 1}"
         return self._insert_row(index, title=title, start_page=1, end_page=1)
 
     def add_chapter_at_page(self, page_1based: int) -> int:
-        """Append a new chapter row at the provided page.
-
-        Summary:
-            Create a new chapter with start/end set to the given page.
-        Inputs:
-            - page_1based: 1-based page number.
-        Outputs:
-            - Row index of the created row.
-        Side effects:
-            Mutates the table model.
-        Error handling:
-            Clamps invalid page values to valid bounds.
-        Ties to other methods:
-            Called by MainWindow Add Chapter at Current Page action.
-        Why this exists:
-            Preview-driven chapter creation is faster than typing page numbers.
-        """
+        """Append a new chapter row at the provided page."""
         page = max(1, min(int(page_1based), self._total_pages))
         index = self._table.rowCount()
         title = f"{self._title_prefix} {index + 1}"
         return self._insert_row(index, title=title, start_page=page, end_page=page)
 
     def remove_row(self, row_index: int) -> None:
-        """Remove a row by index.
-
-        Summary:
-            Delete a chapter row and update internal row widget registry.
-        Inputs:
-            - row_index: Row index to remove.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates the table and internal row list.
-        Error handling:
-            No-ops when index is out of bounds.
-        Ties to other methods:
-            Called by the remove button handler.
-        Why this exists:
-            Removing chapters is a common edit operation during review.
-        """
+        """Remove a row by index."""
         if row_index < 0 or row_index >= self._table.rowCount():
             return
         self._table.removeRow(int(row_index))
         self._rows.pop(int(row_index))
+        self._refresh_row_accessibility()
         self.chapters_changed.emit()
 
     def set_row_start(self, row_index: int, page_1based: int) -> None:
-        """Set the start page for a row.
-
-        Summary:
-            Update start page and keep end page >= start page.
-        Inputs:
-            - row_index: Row index.
-            - page_1based: 1-based page number.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates spinbox values.
-        Error handling:
-            No-ops when row cannot be resolved.
-        Ties to other methods:
-            Used by MainWindow Set Start action.
-        Why this exists:
-            Start and end boundaries should remain consistent without extra user steps.
-        """
+        """Set the start page for a row."""
         widgets = self._row_widgets(row_index)
         if widgets is None:
             return
@@ -472,24 +214,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         self.chapters_changed.emit()
 
     def set_row_end(self, row_index: int, page_1based: int) -> None:
-        """Set the end page for a row.
-
-        Summary:
-            Update end page and keep start page <= end page.
-        Inputs:
-            - row_index: Row index.
-            - page_1based: 1-based page number.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates spinbox values.
-        Error handling:
-            No-ops when row cannot be resolved.
-        Ties to other methods:
-            Used by MainWindow Set End action.
-        Why this exists:
-            Start and end boundaries should remain consistent without extra user steps.
-        """
+        """Set the end page for a row."""
         widgets = self._row_widgets(row_index)
         if widgets is None:
             return
@@ -499,54 +224,28 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         self.chapters_changed.emit()
 
     def set_chapters(self, chapters: list[ChapterDefinition]) -> None:
-        """Replace table contents with provided chapters.
+        """Replace table contents with provided chapters."""
+        replacement = list(chapters)
+        validate_chapter_ranges_for_document(
+            chapters=replacement,
+            total_pages=self._total_pages,
+            location=f"{__name__}.ChaptersTableWidget.set_chapters",
+        )
 
-        Summary:
-            Clear all rows and insert chapters in order.
-        Inputs:
-            - chapters: ChapterDefinition list.
-        Outputs:
-            - None.
-        Side effects:
-            Clears and repopulates the table widget.
-        Error handling:
-            Clamps start/end pages to valid bounds.
-        Ties to other methods:
-            Used by detection and TOML import workflows.
-        Why this exists:
-            The table must be populated from multiple sources deterministically.
-        """
-        self._table.setRowCount(0)
-        self._rows.clear()
-        for chapter in chapters:
-            start = max(1, min(int(chapter.start_page), self._total_pages))
-            end = max(1, min(int(chapter.end_page), self._total_pages))
-            self._insert_row(
-                self._table.rowCount(),
-                title=chapter.title,
-                start_page=start,
-                end_page=end,
-            )
+        with QtCore.QSignalBlocker(self):
+            self._table.setRowCount(0)
+            self._rows.clear()
+            for chapter in replacement:
+                self._insert_row(
+                    self._table.rowCount(),
+                    title=chapter.title,
+                    start_page=chapter.start_page,
+                    end_page=chapter.end_page,
+                )
         self.chapters_changed.emit()
 
     def get_chapters(self) -> list[ChapterDefinition]:
-        """Extract chapters from the table.
-
-        Summary:
-            Convert row editor values into a list of ChapterDefinition objects.
-        Inputs:
-            - None.
-        Outputs:
-            - List of ChapterDefinition objects.
-        Side effects:
-            None.
-        Error handling:
-            Uses best-effort defaults for missing titles and page values.
-        Ties to other methods:
-            Used by export and TOML write workflows.
-        Why this exists:
-            The workflow needs typed chapter data, not UI widgets.
-        """
+        """Extract chapters from the table."""
         chapters: list[ChapterDefinition] = []
         for widgets in self._rows:
             title = widgets.title.text().strip()
@@ -596,6 +295,14 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         start_spin.valueChanged.connect(self._on_editor_changed)
         end_spin.valueChanged.connect(self._on_editor_changed)
 
+        # QTableWidget does not receive cell clicks when an embedded editor consumes the event.
+        # Watch both the editors and their child widgets (notably a spinbox's line edit) so mouse
+        # and keyboard focus always make the edited chapter the active row first.
+        for editor in (title_edit, start_spin, end_spin):
+            editor.installEventFilter(self)
+            for child in editor.findChildren(QtWidgets.QWidget):
+                child.installEventFilter(self)
+
         self._table.setCellWidget(int(row_index), 0, title_edit)
         self._table.setCellWidget(int(row_index), 1, start_spin)
         self._table.setCellWidget(int(row_index), 2, end_spin)
@@ -608,6 +315,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             remove=remove_btn,
         )
         self._rows.insert(int(row_index), row_widgets)
+        self._refresh_row_accessibility()
         self._table.setRowHeight(int(row_index), 34 if self._compact_mode else 38)
         self._table.selectRow(int(row_index))
         self._apply_active_row_visuals(int(row_index))
@@ -616,34 +324,49 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         self.chapters_changed.emit()
         return int(row_index)
 
+    def _refresh_row_accessibility(self) -> None:
+        """Keep accessible editor names aligned after insertions and removals."""
+        for row_number, widgets in enumerate(self._rows, start=1):
+            widgets.title.setAccessibleName(f"Chapter {row_number} title")
+            widgets.start.setAccessibleName(f"Chapter {row_number} start page")
+            widgets.end.setAccessibleName(f"Chapter {row_number} end page")
+            widgets.remove.setAccessibleName(f"Remove chapter {row_number}")
+            widgets.remove.setToolTip(f"Remove chapter {row_number}")
+
     def _row_widgets(self, row_index: int) -> ChapterRowWidgets | None:
         if row_index < 0 or row_index >= len(self._rows):
             return None
         return self._rows[int(row_index)]
+
+    def eventFilter(self, watched: QtCore.QObject, event: Any) -> bool:
+        """Select the row belonging to an editor before it handles focus or a click.
+
+        Embedded cell widgets consume input events before QTableWidget can update its selection.
+        Resolving the row from the live widget registry also remains correct after rows are removed.
+        """
+        event_types = cast(Any, QtCore).QEvent.Type
+        if event.type() in (event_types.FocusIn, event_types.MouseButtonPress):
+            row_index = self._row_index_for_editor(watched)
+            if row_index is not None and self.selected_row_index() != row_index:
+                self._table.selectRow(row_index)
+        return bool(cast(Any, super()).eventFilter(watched, event))
+
+    def _row_index_for_editor(self, watched: QtCore.QObject) -> int | None:
+        """Return the row containing an editor or one of its child widgets."""
+        if not isinstance(watched, QtWidgets.QWidget):
+            return None
+        for row_index, widgets in enumerate(self._rows):
+            for editor in (widgets.title, widgets.start, widgets.end):
+                if watched is editor or editor.isAncestorOf(watched):
+                    return row_index
+        return None
 
     def _on_selection_changed(
         self,
         _selected: QtCore.QItemSelection,
         _deselected: QtCore.QItemSelection,
     ) -> None:
-        """Handle table selection changes.
-
-        Summary:
-            Emit the active row index when the user selects a different chapter row.
-        Inputs:
-            - _selected: Qt selection payload (unused).
-            - _deselected: Qt deselection payload (unused).
-        Outputs:
-            - None.
-        Side effects:
-            Emits active_row_changed.
-        Error handling:
-            No-ops when there is no selected row.
-        Ties to other methods:
-            Connected to QItemSelectionModel.selectionChanged in __init__.
-        Why this exists:
-            Set Start and Set End should operate on the user-selected chapter row.
-        """
+        """Handle table selection changes."""
         row = self.selected_row_index()
         if row is None:
             return
@@ -652,25 +375,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
         self.active_row_changed.emit(int(row))
 
     def _start_row_pulse(self, row_index: int) -> None:
-        """Start a short pulse highlight on the active row.
-
-        Summary:
-            Toggle a dynamic property on the active row widgets for a brief period so it is
-            immediately obvious which chapter is selected.
-        Inputs:
-            - row_index: Active row index.
-        Outputs:
-            - None.
-        Side effects:
-            Starts a QTimer and changes dynamic properties on row editor widgets.
-        Error handling:
-            Best-effort only; ignores update failures.
-        Ties to other methods:
-            Called when selection changes or when rows are inserted.
-        Why this exists:
-            A short visual pulse draws attention to the selected chapter without persistent UI
-            chrome.
-        """
+        """Start a short pulse highlight on the active row."""
         try:
             self._pulse_timer.stop()
             self._pulse_active_row = int(row_index)
@@ -682,23 +387,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             return
 
     def _on_pulse_tick(self) -> None:
-        """Advance the pulse animation state.
-
-        Summary:
-            Flip the pulse highlight on and off a fixed number of times, then clear it.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Updates dynamic properties for the active row widgets.
-        Error handling:
-            Best-effort only; stops the timer on failures.
-        Ties to other methods:
-            Triggered by _pulse_timer while a pulse is active.
-        Why this exists:
-            Timed pulses are cheaper and more consistent than per-frame animations in QSS.
-        """
+        """Advance the pulse animation state."""
         if self._pulse_active_row is None:
             self._pulse_timer.stop()
             return
@@ -711,24 +400,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             self._apply_pulse_state()
 
     def _apply_pulse_state(self) -> None:
-        """Apply the current pulse state to row widgets.
-
-        Summary:
-            Set the `pulse` dynamic property on the active row editors and refresh their style so
-            the theme stylesheet can tint their background.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates dynamic properties and repolishes widgets.
-        Error handling:
-            Best-effort only; ignores per-widget polish failures.
-        Ties to other methods:
-            Called by _start_row_pulse and _on_pulse_tick.
-        Why this exists:
-            QTableWidget selection painting does not reach embedded editors; properties do.
-        """
+        """Apply the current pulse state to row widgets."""
         active = self._pulse_active_row
         for idx, widgets in enumerate(self._rows):
             enabled = idx == active and self._pulse_on
@@ -747,25 +419,7 @@ class ChaptersTableWidget(QtWidgets.QWidget):
                     self._pulse_on = False
 
     def _apply_active_row_visuals(self, row_index: int) -> None:
-        """Apply visual emphasis to the active row editors.
-
-        Summary:
-            Mark editors in the active row with a dynamic property used by the global stylesheet so
-            the selected chapter remains obvious even when cell widgets cover selection painting.
-        Inputs:
-            - row_index: Active row index.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates Qt dynamic properties on row editor widgets.
-        Error handling:
-            Best-effort only; ignores per-widget update failures.
-        Ties to other methods:
-            Called from _on_selection_changed and _insert_row.
-        Why this exists:
-            QTableWidget selection highlighting can be obscured by embedded QLineEdit/QSpinBox cell
-            widgets, making it unclear which chapter Set Start/End will target.
-        """
+        """Apply visual emphasis to the active row editors."""
         for idx, widgets in enumerate(self._rows):
             is_active = idx == int(row_index)
             value = "true" if is_active else "false"
@@ -787,43 +441,11 @@ class ChaptersTableWidget(QtWidgets.QWidget):
             widgets.remove.style().polish(widgets.remove)
 
     def _on_editor_changed(self, *_args: object) -> None:
-        """Handle any editor widget change.
-
-        Summary:
-            Emit a single chapters_changed signal whenever any row editor changes.
-        Inputs:
-            - _args: Ignored Qt signal payload.
-        Outputs:
-            - None.
-        Side effects:
-            Emits chapters_changed.
-        Error handling:
-            None.
-        Ties to other methods:
-            Connected to line edit and spinbox signals during _insert_row.
-        Why this exists:
-            Export readiness and review UI should react to edits without polling.
-        """
+        """Handle any editor widget change."""
         self.chapters_changed.emit()
 
     def _on_remove_clicked(self) -> None:
-        """Handle a remove button click for the associated row.
-
-        Summary:
-            Determine which row's remove button was clicked and delete that row.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Removes a table row and its editor widgets.
-        Error handling:
-            No-ops when the sender cannot be resolved to a row.
-        Ties to other methods:
-            Connected to each row's remove button clicked signal.
-        Why this exists:
-            Row indices can change after insertions and deletions; the sender is stable.
-        """
+        """Handle a remove button click for the associated row."""
         sender = self.sender()
         if not isinstance(sender, QtWidgets.QToolButton):
             return

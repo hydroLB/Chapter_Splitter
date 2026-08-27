@@ -29,30 +29,7 @@ def write_chapter_file(
     token: CancellationToken,
     location: str,
 ) -> None:
-    """Write chapter definitions to a TOML file.
-
-    Summary:
-        Validate the output path, render TOML, and persist it through an atomic rename.
-    Inputs:
-        - path: Output file path for the TOML chapter file.
-        - chapters: Chapter definitions to serialize.
-        - report: Optional detection report metadata.
-        - session: Optional session metadata to include in the output file.
-        - overwrite: Whether to overwrite an existing file at path.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - None.
-    Side effects:
-        Writes a TOML file to disk via an atomic rename.
-    Error handling:
-        Raises IoError when output paths are invalid or writes fail.
-    Ties to other methods:
-        Delegates to render_chapters_toml for serialization and _write_payload_atomically for IO.
-    Why this exists:
-        GUI and CLI workflows need a deterministic chapter-file writer with strong safety checks.
-    """
+    """Write chapter definitions to a TOML file."""
     error_location = "chapter_splitter.io.chapter_files.writer.write_chapter_file"
     token.check(location)
     deadline.check(location)
@@ -66,6 +43,7 @@ def write_chapter_file(
     _write_payload_atomically(
         path=path,
         payload=payload,
+        overwrite=overwrite,
         token=token,
         deadline=deadline,
         error_location=error_location,
@@ -80,27 +58,7 @@ def _validate_output_path(
     error_location: str,
     location: str,
 ) -> None:
-    """Validate and prepare the target chapter-file path.
-
-    Summary:
-        Ensure the output path is a Path, respect overwrite policy, and create its parent
-        directory when needed.
-    Inputs:
-        - path: Candidate output file path.
-        - overwrite: Whether existing files may be replaced.
-        - error_location: Fully qualified helper location for error messages.
-        - location: Fully qualified caller location.
-    Outputs:
-        - None.
-    Side effects:
-        Creates parent directories on disk when they do not already exist.
-    Error handling:
-        Raises IoError when the path is invalid, blocked by overwrite policy, or cannot be created.
-    Ties to other methods:
-        Used by write_chapter_file.
-    Why this exists:
-        Output-path validation is separate from TOML rendering and atomic write mechanics.
-    """
+    """Validate and prepare the target chapter-file path."""
     context = f" Context: {location}." if location else ""
     if not isinstance(path, Path):
         raise IoError(format_error_message(error_location, f"path must be a Path.{context}"))
@@ -135,35 +93,13 @@ def _write_payload_atomically(
     *,
     path: Path,
     payload: str,
+    overwrite: bool,
     token: CancellationToken,
     deadline: Deadline,
     error_location: str,
     location: str,
 ) -> None:
-    """Write a TOML payload to disk via a temporary file and atomic rename.
-
-    Summary:
-        Persist the rendered chapter TOML text safely so interrupted writes do not leave partial
-        files behind.
-    Inputs:
-        - path: Final output path.
-        - payload: Rendered TOML payload.
-        - token: Cancellation token for graceful shutdown.
-        - deadline: Deadline tracker for timeout enforcement.
-        - error_location: Fully qualified helper location for error messages.
-        - location: Fully qualified caller location.
-    Outputs:
-        - None.
-    Side effects:
-        Writes a temporary file and atomically replaces the destination path.
-    Error handling:
-        Raises IoError when writing or replacing the file fails and cleans up temp files best
-        effort.
-    Ties to other methods:
-        Used by write_chapter_file.
-    Why this exists:
-        Atomic writes are a separate concern from payload rendering and path validation.
-    """
+    """Write a TOML payload to disk via a temporary file and atomic rename."""
     context = f" Context: {location}." if location else ""
     token.check(location)
     deadline.check(location)
@@ -189,7 +125,13 @@ def _write_payload_atomically(
             os.fsync(handle.fileno())
             token.check(location)
             deadline.check(location)
-        tmp_path.replace(path)
+        if overwrite:
+            tmp_path.replace(path)
+        else:
+            # Commit without a check-then-replace race: the hard link is
+            # atomic and fails if another process already claimed the path.
+            os.link(tmp_path, path)
+            tmp_path.unlink()
     except OSError as exc:
         raise IoError(
             format_error_message(

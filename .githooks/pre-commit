@@ -3,9 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ -x "$ROOT_DIR/.venv311/bin/python" ]]; then
-  PRE_COMMIT_PYTHON="$ROOT_DIR/.venv311/bin/python"
-elif [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
+if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
   PRE_COMMIT_PYTHON="$ROOT_DIR/.venv/bin/python"
 else
   PRE_COMMIT_PYTHON="python3"

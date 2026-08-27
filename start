@@ -4,11 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$ROOT_DIR/.venv"
 PYTHON_BIN="$VENV_DIR/bin/python"
-REQUIREMENTS_LOCK="$ROOT_DIR/requirements.lock"
+REQUIREMENTS_FILE="$ROOT_DIR/requirements.txt"
 PYPROJECT_TOML="$ROOT_DIR/pyproject.toml"
 
 MODE="${CHAPTER_SPLITTER_MODE:-gui}"
-CONFIG_PATH="${CHAPTER_SPLITTER_CONFIG_PATH:-}"
+CONFIG_PATH="${CHAPTER_SPLITTER_CONFIG:-}"
+LEGACY_CONFIG_PATH="${CHAPTER_SPLITTER_CONFIG_PATH:-}"
 PDF_PATH="${PDF_PATH:-}"
 CHAPTERS_PATH="${CHAPTERS_PATH:-}"
 LIVE_PYTHONPATH="$ROOT_DIR/Chapter_Splitter"
@@ -25,34 +26,34 @@ die() {
   exit 1
 }
 
-find_bootstrap_python() {
-  if command -v python3.11 >/dev/null 2>&1; then
-    command -v python3.11
-    return 0
-  fi
-  if command -v python3 >/dev/null 2>&1; then
-    command -v python3
-    return 0
-  fi
-  if command -v python >/dev/null 2>&1; then
-    command -v python
-    return 0
-  fi
-  return 1
+die_usage() {
+  echo "start: $*" >&2
+  exit 2
 }
 
-ensure_venv() {
-  if [[ -x "$PYTHON_BIN" ]]; then
-    return 0
+validate_requested_run() {
+  if [[ -z "$CONFIG_PATH" && -n "$LEGACY_CONFIG_PATH" ]]; then
+    log "CHAPTER_SPLITTER_CONFIG_PATH is deprecated; use CHAPTER_SPLITTER_CONFIG"
+    CONFIG_PATH="$LEGACY_CONFIG_PATH"
+  elif [[ -n "$CONFIG_PATH" && -n "$LEGACY_CONFIG_PATH" && "$CONFIG_PATH" != "$LEGACY_CONFIG_PATH" ]]; then
+    die "CHAPTER_SPLITTER_CONFIG and deprecated CHAPTER_SPLITTER_CONFIG_PATH disagree"
   fi
 
-  local bootstrap_python
-  if ! bootstrap_python="$(find_bootstrap_python)"; then
-    die "could not find python3.11/python3/python on PATH to create .venv"
+  if [[ -n "$CONFIG_PATH" && ! -f "$CONFIG_PATH" ]]; then
+    die "CHAPTER_SPLITTER_CONFIG must point to an existing file: $CONFIG_PATH"
   fi
 
-  log "creating virtual environment at $VENV_DIR"
-  "$bootstrap_python" -m venv "$VENV_DIR"
+  case "$MODE" in
+    gui) ;;
+    split)
+      [[ -n "$PDF_PATH" && -n "$CHAPTERS_PATH" ]] || \
+        die_usage "split mode requires PDF_PATH and CHAPTERS_PATH"
+      [[ -f "$PDF_PATH" ]] || die_usage "PDF_PATH must point to an existing file: $PDF_PATH"
+      [[ -f "$CHAPTERS_PATH" ]] || \
+        die_usage "CHAPTERS_PATH must point to an existing file: $CHAPTERS_PATH"
+      ;;
+    *) die_usage "unknown CHAPTER_SPLITTER_MODE: $MODE (expected: gui or split)" ;;
+  esac
 }
 
 ensure_python_version() {
@@ -66,8 +67,8 @@ PY
 }
 
 ensure_requirements_file() {
-  if [[ ! -f "$REQUIREMENTS_LOCK" ]]; then
-    die "missing requirements lockfile at $REQUIREMENTS_LOCK"
+  if [[ ! -f "$REQUIREMENTS_FILE" ]]; then
+    die "missing runtime requirements file at $REQUIREMENTS_FILE"
   fi
 }
 
@@ -80,9 +81,9 @@ ensure_pyproject_file() {
 read_pinned_runtime_dep() {
   local dependency_name="$1"
   local line
-  line="$(grep -E "^${dependency_name}==" "$REQUIREMENTS_LOCK" | head -n 1 || true)"
+  line="$(grep -E "^${dependency_name}==" "$REQUIREMENTS_FILE" | head -n 1 || true)"
   if [[ -z "$line" ]]; then
-    die "requirements.lock must contain a pinned ${dependency_name} version (expected ${dependency_name}==X.Y.Z)"
+    die "requirements.txt must contain a pinned ${dependency_name} version (expected ${dependency_name}==X.Y.Z)"
   fi
   echo "${line#${dependency_name}==}"
 }
@@ -133,10 +134,10 @@ ensure_runtime_dependencies() {
   local required_pypdf_version
   required_pypdf_version="$(read_pinned_runtime_dep "pypdf")"
   if ! module_version_matches "pypdf" "$required_pypdf_version"; then
-    log "pypdf version mismatch detected, syncing requirements.lock"
+    log "pypdf version mismatch detected, syncing requirements.txt"
   fi
-  log "checking/installing runtime dependencies from requirements.lock"
-  "$PYTHON_BIN" -m pip install -r "$REQUIREMENTS_LOCK"
+  log "checking/installing runtime dependencies from requirements.txt"
+  "$PYTHON_BIN" -m pip install -r "$REQUIREMENTS_FILE"
 }
 
 ensure_gui_dependencies() {
@@ -183,15 +184,12 @@ run_live_cli() {
   PYTHONPATH="$LIVE_PYTHONPATH" "$PYTHON_BIN" -m chapter_splitter "$@"
 }
 
-ensure_venv
+validate_requested_run
+bash "$ROOT_DIR/scripts/bootstrap_venv.sh" "$VENV_DIR"
 ensure_python_version
 ensure_requirements_file
 ensure_pyproject_file
 ensure_runtime_dependencies
-
-if [[ -n "$CONFIG_PATH" && ! -f "$CONFIG_PATH" ]]; then
-  die "CHAPTER_SPLITTER_CONFIG_PATH points to a missing file: $CONFIG_PATH"
-fi
 
 # Run without requiring the console-script to be installed into the venv.
 if [[ "$MODE" == "gui" ]]; then
@@ -205,20 +203,6 @@ if [[ "$MODE" == "gui" ]]; then
 fi
 
 if [[ "$MODE" == "split" ]]; then
-  if [[ -z "$PDF_PATH" || -z "$CHAPTERS_PATH" ]]; then
-    echo "start: split mode requires PDF_PATH and CHAPTERS_PATH env vars." >&2
-    echo "start: example: CHAPTER_SPLITTER_MODE=split PDF_PATH=/path/book.pdf CHAPTERS_PATH=/path/chapters.toml ./start" >&2
-    exit 2
-  fi
-  if [[ ! -f "$PDF_PATH" ]]; then
-    echo "start: PDF file not found: $PDF_PATH" >&2
-    exit 2
-  fi
-  if [[ ! -f "$CHAPTERS_PATH" ]]; then
-    echo "start: chapters file not found: $CHAPTERS_PATH" >&2
-    exit 2
-  fi
-
   if [[ -n "$CONFIG_PATH" ]]; then
     run_live_cli --config "$CONFIG_PATH" split --pdf "$PDF_PATH" --chapters "$CHAPTERS_PATH"
   else
@@ -226,6 +210,3 @@ if [[ "$MODE" == "split" ]]; then
   fi
   exit 0
 fi
-
-echo "start: unknown CHAPTER_SPLITTER_MODE: $MODE (expected: gui or split)" >&2
-exit 2

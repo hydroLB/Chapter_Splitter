@@ -19,4 +19,3 @@ python scripts/update_benchmarks.py
 - `tests/performance/test_benchmarks.py`
 - `scripts/update_benchmarks.py`
 - `scripts/profile_split.py`
-- `docs/performance-governance.md`

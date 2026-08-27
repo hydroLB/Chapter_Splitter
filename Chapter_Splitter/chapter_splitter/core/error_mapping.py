@@ -11,21 +11,7 @@ from .errors import CancellationError, ChapterSplitterError, ErrorCode, format_e
 
 @dataclass(frozen=True, slots=True)
 class ErrorPayload:
-    """Structured error payload used across CLI, UI, and app boundaries.
-
-    Summary:
-        Keep error logs and exit behavior consistent across process entrypoints and UI actions.
-    Ties to other methods:
-        Produced by map_error and consumed by app, cli, and Qt workflow handlers.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Structured error payload used across CLI, UI, and app boundaries."""
 
     code: ErrorCode
     event: str
@@ -36,21 +22,7 @@ class ErrorPayload:
     user_message: str
 
     def log_fields(self, *, location: str) -> dict[str, object]:
-        """Return structured fields for logging.
-
-        Summary:
-            Attach stable metadata to logs without duplicating formatting logic.
-        Ties to other methods:
-            Used by app, CLI, and UI catch blocks.
-        Inputs:
-            - location: Fully qualified module and method name.
-        Outputs:
-            - Dictionary of structured log fields.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Return structured fields for logging."""
         return {
             "reason": self.reason,
             "error_code": self.code.value,
@@ -65,23 +37,7 @@ def map_error(
     channel: Literal["app", "cli", "ui"],
     location: str,
 ) -> ErrorPayload:
-    """Map an exception to a stable structured payload.
-
-    Summary:
-        Centralize exit semantics, log event names, and error metadata for all boundaries.
-    Ties to other methods:
-        Called by app.main, cli.main, and UI workflow error handlers.
-    Inputs:
-        - exc: Exception to map.
-        - channel: Runtime boundary label for event naming.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - ErrorPayload with stable code, event name, and behavior metadata.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Map an exception to a stable structured payload."""
     if isinstance(exc, CancellationError):
         reason = str(exc)
         return ErrorPayload(

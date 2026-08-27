@@ -21,6 +21,7 @@ def test_public_api_all_contracts_are_explicit() -> None:
     """Verify key packages publish explicit, stable exports via __all__."""
     expected: dict[str, set[str]] = {
         "chapter_splitter": {
+            "__version__",
             "CancellationError",
             "CancellationToken",
             "ChapterDefinition",
@@ -38,7 +39,6 @@ def test_public_api_all_contracts_are_explicit() -> None:
             "detect_chapters",
             "detect_chapters_from_outlines",
             "load_chapter_file",
-            "load_config",
             "load_settings",
             "split_pdf_into_chapters",
             "write_chapter_file",
@@ -64,9 +64,8 @@ def test_public_api_all_contracts_are_explicit() -> None:
             "validate_page_range",
         },
         "chapter_splitter.config": {
-            "ConfigRegistry",
             "Settings",
-            "load_config",
+            "load_settings",
         },
         "chapter_splitter.config.schema": {
             "AppConfig",
@@ -88,8 +87,6 @@ def test_public_api_all_contracts_are_explicit() -> None:
         },
         "chapter_splitter.observability": {
             "CorrelationIdFilter",
-            "MetricsSink",
-            "NoOpMetrics",
             "RedactionPolicy",
             "StructuredFormatter",
             "configure_logging",
@@ -130,7 +127,6 @@ def test_public_api_all_contracts_are_explicit() -> None:
         "chapter_splitter.utils": {
             "Deadline",
             "RateLimiter",
-            "open_in_default_viewer",
             "open_path_in_default_viewer",
             "retry_with_backoff",
             "safe_filename",
@@ -156,8 +152,12 @@ def test_public_api_all_contracts_are_explicit() -> None:
             assert hasattr(module, symbol), f"{module_name} missing exported symbol {symbol}"
 
 
-def test_tests_and_scripts_avoid_deep_import_coupling() -> None:
-    """Ensure non-package code only imports approved public modules."""
+def test_external_tests_and_scripts_avoid_deep_import_coupling() -> None:
+    """Keep integration consumers and scripts on public modules.
+
+    Unit tests may intentionally exercise a private implementation seam. Integration, end-to-end,
+    performance, and repository scripts should instead prove the supported package surface.
+    """
     repo_root = Path(__file__).resolve().parents[2]
     allowed_modules = {
         "chapter_splitter",
@@ -165,7 +165,6 @@ def test_tests_and_scripts_avoid_deep_import_coupling() -> None:
         "chapter_splitter.cli",
         "chapter_splitter.config",
         "chapter_splitter.config.loader",
-        "chapter_splitter.config.loader._internal",
         "chapter_splitter.config.schema",
         "chapter_splitter.core",
         "chapter_splitter.io",
@@ -174,11 +173,18 @@ def test_tests_and_scripts_avoid_deep_import_coupling() -> None:
         "chapter_splitter.pdf.detection",
         "chapter_splitter.pdf.io",
         "chapter_splitter.pdf.splitting",
+        "chapter_splitter.ui",
         "chapter_splitter.utils",
     }
     disallowed_imports: list[str] = []
-    for top in ("tests", "scripts"):
-        for path in sorted((repo_root / top).rglob("*.py")):
+    consumer_roots = (
+        repo_root / "tests" / "e2e",
+        repo_root / "tests" / "integration",
+        repo_root / "tests" / "performance",
+        repo_root / "scripts",
+    )
+    for consumer_root in consumer_roots:
+        for path in sorted(consumer_root.rglob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):

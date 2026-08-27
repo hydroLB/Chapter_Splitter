@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import cast
 
+from .._version import __version__
 from ..core.errors import ChapterSplitterError, format_error_message
 
 
@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Path to an override configuration TOML file.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     gui_parser = subparsers.add_parser("gui", help="Launch the GUI workflow.")
@@ -223,13 +224,3 @@ def optional_path(value: object, name: str, location: str) -> Path | None:
     raise ChapterSplitterError(
         format_error_message(error_location, f"Argument '{name}' must be a path.{context}")
     )
-
-
-def parse_argv(argv: list[str] | None, location: str) -> ParsedArgs:
-    """Compatibility alias retained for migration safety."""
-    return parse_args(argv, location)
-
-
-def _cast_namespace(obj: object) -> argparse.Namespace:
-    """Retained private compatibility helper for typed casts."""
-    return cast(argparse.Namespace, obj)

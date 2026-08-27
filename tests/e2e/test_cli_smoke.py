@@ -14,23 +14,7 @@ def test_cli_split_smoke(
     standard_chapters_file: Path,
     quiet_logging_override_file: Path,
 ) -> None:
-    """Verify the CLI split command completes successfully.
-
-    Summary:
-        Ensure the CLI split workflow runs end to end.
-    Ties to other methods:
-        Covers chapter_splitter.cli.main and split subcommand.
-    Inputs:
-        - sample_pdf: Fixture providing a deterministic PDF path.
-        - standard_chapters_file: Fixture providing a deterministic chapter TOML file.
-        - quiet_logging_override_file: Fixture providing a deterministic logging override TOML.
-    Outputs:
-        - None.
-    Side effects:
-        Writes output chapter PDFs to disk.
-    Error handling:
-        - None.
-    """
+    """Verify the CLI split command completes successfully."""
     pdf_path = sample_pdf
     chapters_path = standard_chapters_file
     config_path = quiet_logging_override_file
@@ -53,23 +37,7 @@ def test_cli_split_respects_output_dir(
     standard_chapters_file: Path,
     quiet_logging_override_file: Path,
 ) -> None:
-    """Verify the CLI split command can override the output directory.
-
-    Summary:
-        Allow one-off runs to direct exports without creating an override config TOML file.
-    Ties to other methods:
-        Covers chapter_splitter.cli.main split flags and output_dir override.
-    Inputs:
-        - sample_pdf: Fixture providing a deterministic PDF path.
-        - standard_chapters_file: Fixture providing a deterministic chapter TOML file.
-        - quiet_logging_override_file: Fixture providing a deterministic logging override TOML.
-    Outputs:
-        - None.
-    Side effects:
-        Writes output chapter PDFs to disk.
-    Error handling:
-        - None.
-    """
+    """Verify the CLI split command can override the output directory."""
     pdf_path = sample_pdf
     chapters_path = standard_chapters_file
     config_path = quiet_logging_override_file
@@ -93,22 +61,7 @@ def test_cli_split_respects_output_dir(
 
 
 def test_cli_detect_smoke(tmp_path: Path, quiet_logging_override_file: Path) -> None:
-    """Verify the CLI detect command writes a chapters TOML file.
-
-    Summary:
-        Ensure the CLI detect workflow runs end to end and produces a loadable output file.
-    Ties to other methods:
-        Covers chapter_splitter.cli.main detect subcommand.
-    Inputs:
-        - tmp_path: Pytest provided temporary directory.
-        - quiet_logging_override_file: Fixture providing a deterministic logging override TOML.
-    Outputs:
-        - None.
-    Side effects:
-        Writes a detection output TOML file to disk.
-    Error handling:
-        - None.
-    """
+    """Verify the CLI detect command writes a chapters TOML file."""
     pdf_path = create_sample_pdf(
         tmp_path / "outlined.pdf",
         page_count=4,

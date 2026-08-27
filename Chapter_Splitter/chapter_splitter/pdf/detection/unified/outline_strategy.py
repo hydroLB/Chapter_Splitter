@@ -20,27 +20,7 @@ def extract_filtered_outline_entries(
     detection_config: DetectionConfig,
     location: str,
 ) -> list[tuple[str, int]]:
-    """Extract filtered outline entries for unified detection.
-
-    Summary:
-        Read and normalize outline entries once so all strategy branches can reuse the result.
-    Inputs:
-        - reader: Reader supporting outline access.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for cooperative cancellation.
-        - detection_config: Detection configuration containing outline filters.
-        - location: Fully qualified caller location.
-    Outputs:
-        - List of normalized outline title and page pairs.
-    Side effects:
-        Reads outline metadata from the loaded PDF reader.
-    Error handling:
-        Propagates exceptions raised by extract_outline_entries.
-    Ties to other methods:
-        Used by detect_chapters_in_reader before choosing a strategy.
-    Why this exists:
-        Outline extraction is shared work and should not be repeated per branch.
-    """
+    """Extract filtered outline entries for unified detection."""
     return extract_outline_entries(
         reader,
         deadline,
@@ -62,30 +42,7 @@ def detect_forced_outlines(
     warnings: list[str],
     location: str,
 ) -> ChapterDetectionReport:
-    """Run forced outline detection.
-
-    Summary:
-        Execute the outline strategy and return either a success report or an explicit empty one.
-    Inputs:
-        - reader: Reader supporting outline extraction.
-        - total_pages: Total pages in the document.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for cooperative cancellation.
-        - detection_config: Detection heuristics controlling outline merging.
-        - outline_entries: Previously extracted outline entries.
-        - warnings: Mutable warning accumulator.
-        - location: Fully qualified caller location.
-    Outputs:
-        - ChapterDetectionReport for the forced outlines branch.
-    Side effects:
-        Reads outline-derived chapter information from the reader.
-    Error handling:
-        Returns a canonical empty report when no outline chapters are found.
-    Ties to other methods:
-        Used by detect_chapters_in_reader when request.force_strategy is "outlines".
-    Why this exists:
-        Forced strategies should remain explicit and easy to reason about.
-    """
+    """Run forced outline detection."""
     chapters = _detect_outline_chapters(
         reader=reader,
         total_pages=total_pages,
@@ -121,30 +78,7 @@ def detect_preferred_outlines(
     warnings: list[str],
     location: str,
 ) -> ChapterDetectionReport | None:
-    """Try outlines before any TOC fallback.
-
-    Summary:
-        Run the preferred outline strategy and return a report only when it produced chapters.
-    Inputs:
-        - reader: Reader supporting outline extraction.
-        - total_pages: Total pages in the document.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for cooperative cancellation.
-        - detection_config: Detection heuristics controlling outline merging.
-        - outline_entries: Previously extracted outline entries.
-        - warnings: Mutable warning accumulator.
-        - location: Fully qualified caller location.
-    Outputs:
-        - ChapterDetectionReport when outlines succeed, otherwise None.
-    Side effects:
-        Reads outline-derived chapter information from the reader.
-    Error handling:
-        Returns None when no outline chapters are found.
-    Ties to other methods:
-        Used by detect_chapters_in_reader in the default strategy path.
-    Why this exists:
-        The default pipeline prefers outlines when they are available and usable.
-    """
+    """Try outlines before any TOC fallback."""
     chapters = _detect_outline_chapters(
         reader=reader,
         total_pages=total_pages,
@@ -173,30 +107,7 @@ def _detect_outline_chapters(
     outline_entries: list[tuple[str, int]],
     location: str,
 ) -> list[ChapterDefinition]:
-    """Run outline chapter detection with shared configuration.
-
-    Summary:
-        Convert extracted outline entries into chapter definitions using the configured merge
-        rules.
-    Inputs:
-        - reader: Reader supporting outline access.
-        - total_pages: Total pages in the document.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for cooperative cancellation.
-        - detection_config: Detection heuristics controlling outline merging.
-        - outline_entries: Previously extracted outline entries.
-        - location: Fully qualified caller location.
-    Outputs:
-        - List of detected chapter definitions.
-    Side effects:
-        Reads outline information from the PDF reader.
-    Error handling:
-        Propagates exceptions raised by detect_chapters_from_outlines_reader.
-    Ties to other methods:
-        Used by forced and preferred outline branches in this module.
-    Why this exists:
-        Outline detection parameters should be assembled in one place.
-    """
+    """Run outline chapter detection with shared configuration."""
     return detect_chapters_from_outlines_reader(
         reader=reader,
         total_pages=total_pages,

@@ -16,25 +16,7 @@ from .rate_limit import RateLimiter
 
 
 def _open_path_native(path: Path, location: str) -> bool:
-    """Open a path using OS-native open mechanisms.
-
-    Summary:
-        Prefer OS-specific open tools over webbrowser.open so directories open in Finder/Explorer/
-        file managers consistently across platforms.
-    Inputs:
-        - path: Path to open.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - True when a launch attempt was made, otherwise False.
-    Side effects:
-        Launches a subprocess or invokes os.startfile (Windows).
-    Error handling:
-        Returns False when no known tool is available; raises OSError for process launch failures.
-    Ties to other methods:
-        Used by open_path_in_default_viewer.
-    Why this exists:
-        webbrowser.open can open directory URIs in a browser instead of the OS file manager.
-    """
+    """Open a path using OS-native open mechanisms."""
     if sys.platform == "win32":
         # startfile uses ShellExecute and is the most native option on Windows.
         os.startfile(str(path))  # type: ignore[attr-defined]  # nosec B606
@@ -79,28 +61,7 @@ def open_path_in_default_viewer(
     rate_limiter: RateLimiter | None,
     location: str,
 ) -> None:
-    """Open a file or directory in the system default viewer.
-
-    Summary:
-        Open a filesystem path in the default system viewer using a shared implementation for PDFs
-        and output folders.
-    Inputs:
-        - path: Filesystem path to open.
-        - timeout_seconds: Timeout for viewer launch.
-        - rate_limiter: Optional rate limiter to prevent repeated opens.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - None.
-    Side effects:
-        Launches the system default viewer for the provided path.
-    Error handling:
-        Raises IoError with a location-tagged message when the path is invalid or the viewer fails.
-    Ties to other methods:
-        Used by open_in_default_viewer and the GUI export flow when opening output folders.
-    Why this exists:
-        The GUI needs to open both PDFs and directories while keeping behavior consistent and
-        centrally validated.
-    """
+    """Open a file or directory in the system default viewer."""
     error_location = f"{__name__}.open_path_in_default_viewer"
     context = f" Context: {location}." if location else ""
     if not isinstance(path, Path):
@@ -163,30 +124,3 @@ def open_path_in_default_viewer(
                 f"System viewer did not accept the path: {path}.{context}",
             )
         )
-
-
-def open_in_default_viewer(
-    pdf_path: Path,
-    timeout_seconds: float,
-    rate_limiter: RateLimiter | None,
-    location: str,
-) -> None:
-    """Open a PDF in the system default viewer.
-
-    Summary:
-        Provide a consistent viewer launch with timeouts and rate limiting.
-    Ties to other methods:
-        Called by UI workflows after a PDF is selected.
-    Inputs:
-        - pdf_path: Path to the PDF file.
-        - timeout_seconds: Timeout for viewer launch.
-        - rate_limiter: Optional rate limiter to prevent repeated opens.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - None.
-    Side effects:
-        Launches the system PDF viewer.
-    Error handling:
-        - IoError: When the viewer cannot be launched.
-    """
-    open_path_in_default_viewer(pdf_path, timeout_seconds, rate_limiter, location)

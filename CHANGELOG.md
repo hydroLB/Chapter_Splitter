@@ -1,10 +1,17 @@
 # Changelog
 
 ## Unreleased
-- No unreleased changes.
 
-## 0.1.0
-- Initial release with GUI and CLI workflows
-- Config driven settings with validation and structured logging
-- PDF outline detection, splitting, and performance baselines
-- Tests, CI quality gates, and security scans
+## 0.1.0 - 2026-08-27
+
+First public release.
+
+- Added a native Qt workflow with an embedded PDF preview, editable chapter ranges, keyboard
+  shortcuts, automatic outline/TOC detection, and threaded detection/export work.
+- Added deterministic CLI commands for detecting chapter ranges and splitting PDFs.
+- Added TOML chapter maps and session imports with document preflight checks.
+- Added transactional batch export, rollback, atomic no-clobber writes, and portable filename
+  collision handling.
+- Added standalone macOS, Windows, and Linux release builds with SHA-256 checksums.
+- Added strict typing, branch coverage, security scans, isolated wheel verification, Qt smoke tests,
+  and full-history secret scanning in CI.

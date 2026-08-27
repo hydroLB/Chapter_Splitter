@@ -37,6 +37,9 @@ class QPalette:
 class QPixmap:
     def __init__(self, *args: Any) -> None: ...
 
+class QKeySequence:
+    def __init__(self, sequence: str) -> None: ...
+
 class QShowEvent: ...
 class QResizeEvent: ...
 
@@ -53,6 +56,7 @@ __all__ = [
     "QFont",
     "QFontMetrics",
     "QGuiApplication",
+    "QKeySequence",
     "QPalette",
     "QPixmap",
     "QResizeEvent",

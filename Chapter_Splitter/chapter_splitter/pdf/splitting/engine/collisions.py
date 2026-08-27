@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from pathlib import Path
 
 from ....config.schema import IOConfig
@@ -16,47 +17,33 @@ def resolve_output_paths(
     io_config: IOConfig,
     location: str,
 ) -> list[Path]:
-    """Resolve final output paths with configured collision handling.
-
-    Summary:
-        Convert chapter titles into output paths, applying collision policy against existing files
-        and within-run duplicates.
-    Inputs:
-        - chapters: Validated chapters for export.
-        - output_dir: Output directory for chapter PDFs.
-        - io_config: IO configuration controlling collision policy.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - List of final output paths in the same order as chapters.
-    Side effects:
-        Checks filesystem state for existing output files.
-    Error handling:
-        Raises ValidationError or IoError when collisions cannot be resolved safely.
-    Ties to other methods:
-        Used by split_pdf_into_chapters before writing any bytes.
-    Why this exists:
-        Resolving all paths up front avoids partial exports when a late chapter collides.
-    """
+    """Resolve final output paths with configured collision handling."""
     error_location = "chapter_splitter.pdf.splitting.engine.collisions.resolve_output_paths"
     context = f" Context: {location}." if location else ""
     policy = io_config.output_collision_policy
     max_suffix = io_config.output_collision_max_suffix
     resolved: list[Path] = []
-    used_stems: set[str] = set()
-    used_paths: set[Path] = set()
+    used_stem_keys: set[str] = set()
+    existing_paths_by_key = _index_existing_paths(
+        output_dir=output_dir,
+        context=context,
+        error_location=error_location,
+    )
+    used_path_keys = set(existing_paths_by_key)
 
     for chapter in chapters:
         stem = safe_filename(chapter.title)
-        if policy in ("error", "overwrite") and stem in used_stems:
+        stem_key = _portable_filename_key(stem)
+        if policy in ("error", "overwrite") and stem_key in used_stem_keys:
             raise ValidationError(
                 format_error_message(
                     error_location,
-                    "Multiple chapter titles sanitize to the same output filename stem "
-                    f"'{stem}'. Rename the chapters or set io.output_collision_policy='suffix'."
-                    f"{context}",
+                    "Multiple chapter titles resolve to the same cross-platform output filename "
+                    f"'{stem}.pdf'. Rename the chapters or set "
+                    f"io.output_collision_policy='suffix'.{context}",
                 )
             )
-        used_stems.add(stem)
+        used_stem_keys.add(stem_key)
         resolved.append(
             _resolve_chapter_output_path(
                 stem=stem,
@@ -64,7 +51,8 @@ def resolve_output_paths(
                 policy=policy,
                 max_suffix=max_suffix,
                 io_config=io_config,
-                used_paths=used_paths,
+                used_path_keys=used_path_keys,
+                existing_paths_by_key=existing_paths_by_key,
                 context=context,
                 error_location=error_location,
             )
@@ -79,40 +67,19 @@ def _resolve_chapter_output_path(
     policy: str,
     max_suffix: int,
     io_config: IOConfig,
-    used_paths: set[Path],
+    used_path_keys: set[str],
+    existing_paths_by_key: dict[str, list[Path]],
     context: str,
     error_location: str,
 ) -> Path:
-    """Resolve one output path under the configured collision policy.
-
-    Summary:
-        Apply error, overwrite, or suffix collision handling for a single sanitized chapter stem.
-    Inputs:
-        - stem: Sanitized filename stem for the chapter.
-        - output_dir: Output directory for exported PDFs.
-        - policy: Configured collision policy string.
-        - max_suffix: Maximum numeric suffix search depth for suffix mode.
-        - io_config: IO configuration used for user-facing hints.
-        - used_paths: Paths already reserved during the current export run.
-        - context: Formatted context suffix for error messages.
-        - error_location: Fully qualified helper location for error messages.
-    Outputs:
-        - Resolved output path for the chapter.
-    Side effects:
-        Checks filesystem state and mutates used_paths when a path is reserved.
-    Error handling:
-        Raises IoError when the configured policy is unsupported or no path is available.
-    Ties to other methods:
-        Used by resolve_output_paths.
-    Why this exists:
-        Keeping per-path collision handling isolated reduces the complexity of the outer loop.
-    """
+    """Resolve one output path under the configured collision policy."""
     if policy == "error":
         return _reserve_error_policy_path(
             stem=stem,
             output_dir=output_dir,
             io_config=io_config,
-            used_paths=used_paths,
+            used_path_keys=used_path_keys,
+            existing_paths_by_key=existing_paths_by_key,
             context=context,
             error_location=error_location,
         )
@@ -120,14 +87,17 @@ def _resolve_chapter_output_path(
         return _reserve_overwrite_policy_path(
             stem=stem,
             output_dir=output_dir,
-            used_paths=used_paths,
+            used_path_keys=used_path_keys,
+            existing_paths_by_key=existing_paths_by_key,
+            context=context,
+            error_location=error_location,
         )
     if policy == "suffix":
         return _reserve_suffix_policy_path(
             stem=stem,
             output_dir=output_dir,
             max_suffix=max_suffix,
-            used_paths=used_paths,
+            used_path_keys=used_path_keys,
             context=context,
             error_location=error_location,
         )
@@ -144,42 +114,26 @@ def _reserve_error_policy_path(
     stem: str,
     output_dir: Path,
     io_config: IOConfig,
-    used_paths: set[Path],
+    used_path_keys: set[str],
+    existing_paths_by_key: dict[str, list[Path]],
     context: str,
     error_location: str,
 ) -> Path:
-    """Reserve an output path for the error collision policy.
-
-    Summary:
-        Fail immediately when the target output file already exists.
-    Inputs:
-        - stem: Sanitized filename stem for the chapter.
-        - output_dir: Output directory for exported PDFs.
-        - io_config: IO configuration used for user-facing hints.
-        - used_paths: Paths already reserved during the current export run.
-        - context: Formatted context suffix for error messages.
-        - error_location: Fully qualified helper location for error messages.
-    Outputs:
-        - Reserved output path.
-    Side effects:
-        Mutates used_paths when the candidate is available.
-    Error handling:
-        Raises IoError when an existing file blocks export.
-    Ties to other methods:
-        Used by _resolve_chapter_output_path.
-    Why this exists:
-        The error policy should be explicit and produce a single actionable failure point.
-    """
+    """Reserve an output path for the error collision policy."""
     candidate = output_dir / f"{stem}.pdf"
-    if candidate.exists():
+    candidate_key = _portable_filename_key(candidate.name)
+    if candidate_key in used_path_keys:
+        existing_matches = existing_paths_by_key.get(candidate_key, [])
+        conflicting_path = existing_matches[0] if existing_matches else candidate
         raise IoError(
             format_error_message(
                 error_location,
-                f"Output file already exists: {candidate}.{context} "
+                f"Output path already exists or conflicts cross-platform: "
+                f"{conflicting_path}.{context} "
                 f"{format_collision_hint(io_config)}",
             )
         )
-    used_paths.add(candidate)
+    used_path_keys.add(candidate_key)
     return candidate
 
 
@@ -187,29 +141,33 @@ def _reserve_overwrite_policy_path(
     *,
     stem: str,
     output_dir: Path,
-    used_paths: set[Path],
+    used_path_keys: set[str],
+    existing_paths_by_key: dict[str, list[Path]],
+    context: str,
+    error_location: str,
 ) -> Path:
-    """Reserve an output path for the overwrite collision policy.
-
-    Summary:
-        Reuse the canonical chapter filename regardless of whether it already exists.
-    Inputs:
-        - stem: Sanitized filename stem for the chapter.
-        - output_dir: Output directory for exported PDFs.
-        - used_paths: Paths already reserved during the current export run.
-    Outputs:
-        - Reserved output path.
-    Side effects:
-        Mutates used_paths.
-    Error handling:
-        None.
-    Ties to other methods:
-        Used by _resolve_chapter_output_path.
-    Why this exists:
-        Overwrite mode should remain the simplest, lowest-overhead branch.
-    """
-    candidate = output_dir / f"{stem}.pdf"
-    used_paths.add(candidate)
+    """Reserve an output path for the overwrite collision policy."""
+    canonical_candidate = output_dir / f"{stem}.pdf"
+    candidate_key = _portable_filename_key(canonical_candidate.name)
+    existing_matches = existing_paths_by_key.get(candidate_key, [])
+    if len(existing_matches) > 1:
+        formatted_matches = ", ".join(str(path) for path in existing_matches)
+        raise IoError(
+            format_error_message(
+                error_location,
+                "Overwrite target is ambiguous because multiple existing names collide "
+                f"cross-platform: {formatted_matches}.{context}",
+            )
+        )
+    candidate = existing_matches[0] if existing_matches else canonical_candidate
+    if candidate.exists() and not candidate.is_file():
+        raise IoError(
+            format_error_message(
+                error_location,
+                f"Overwrite target exists but is not a file: {candidate}.{context}",
+            )
+        )
+    used_path_keys.add(candidate_key)
     return candidate
 
 
@@ -218,38 +176,18 @@ def _reserve_suffix_policy_path(
     stem: str,
     output_dir: Path,
     max_suffix: int,
-    used_paths: set[Path],
+    used_path_keys: set[str],
     context: str,
     error_location: str,
 ) -> Path:
-    """Reserve an output path for the suffix collision policy.
-
-    Summary:
-        Search for the first unused filename stem by appending numeric suffixes when necessary.
-    Inputs:
-        - stem: Sanitized filename stem for the chapter.
-        - output_dir: Output directory for exported PDFs.
-        - max_suffix: Maximum numeric suffix search depth.
-        - used_paths: Paths already reserved during the current export run.
-        - context: Formatted context suffix for error messages.
-        - error_location: Fully qualified helper location for error messages.
-    Outputs:
-        - Reserved output path.
-    Side effects:
-        Checks filesystem state and mutates used_paths when a candidate is reserved.
-    Error handling:
-        Raises IoError when no candidate is available within the configured suffix range.
-    Ties to other methods:
-        Used by _resolve_chapter_output_path.
-    Why this exists:
-        Suffix-mode filename allocation is the noisiest branch and deserves its own helper.
-    """
+    """Reserve an output path for the suffix collision policy."""
     for idx in range(1, max_suffix + 1):
         candidate_stem = stem if idx == 1 else with_suffix(stem, idx)
         candidate = output_dir / f"{candidate_stem}.pdf"
-        if candidate in used_paths or candidate.exists():
+        candidate_key = _portable_filename_key(candidate.name)
+        if candidate_key in used_path_keys or candidate.exists():
             continue
-        used_paths.add(candidate)
+        used_path_keys.add(candidate_key)
         return candidate
     raise IoError(
         format_error_message(
@@ -260,46 +198,40 @@ def _reserve_suffix_policy_path(
     )
 
 
-def format_collision_hint(io_config: IOConfig) -> str:
-    """Build a consistent config hint for collision errors.
+def _portable_filename_key(name: str) -> str:
+    """Return a case-insensitive, canonically normalized filename key."""
+    return unicodedata.normalize("NFC", name.casefold())
 
-    Summary:
-        Provide a short hint that points to the config knob controlling collision behavior.
-    Inputs:
-        - io_config: IO configuration used by the pipeline.
-    Outputs:
-        - Human-readable hint string.
-    Side effects:
-        None.
-    Error handling:
-        None.
-    Ties to other methods:
-        Used by _reserve_error_policy_path.
-    Why this exists:
-        Collision errors are common user friction points, so the guidance should stay consistent.
-    """
+
+def _index_existing_paths(
+    *,
+    output_dir: Path,
+    context: str,
+    error_location: str,
+) -> dict[str, list[Path]]:
+    """Index directory entries by their portable filename key before allocating outputs."""
+    try:
+        entries = sorted(output_dir.iterdir(), key=lambda path: path.name)
+    except OSError as exc:
+        raise IoError(
+            format_error_message(
+                error_location,
+                f"Unable to inspect existing output paths in {output_dir}.{context}",
+            )
+        ) from exc
+    indexed: dict[str, list[Path]] = {}
+    for entry in entries:
+        indexed.setdefault(_portable_filename_key(entry.name), []).append(entry)
+    return indexed
+
+
+def format_collision_hint(io_config: IOConfig) -> str:
+    """Build a consistent config hint for collision errors."""
     return "To change this behavior, update io.output_collision_policy (error, overwrite, suffix)."
 
 
 def with_suffix(base: str, index: int) -> str:
-    """Return a deterministic filename stem with a numeric suffix.
-
-    Summary:
-        Append a " (n)" suffix to a filename stem without changing the extension.
-    Inputs:
-        - base: Base filename stem.
-        - index: Numeric suffix value.
-    Outputs:
-        - Suffixed filename stem.
-    Side effects:
-        None.
-    Error handling:
-        Raises ValidationError when index is less than two.
-    Ties to other methods:
-        Used by _reserve_suffix_policy_path.
-    Why this exists:
-        Suffixing provides a non-destructive collision policy that keeps outputs user-friendly.
-    """
+    """Return a deterministic filename stem with a numeric suffix."""
     error_location = "chapter_splitter.pdf.splitting.engine.collisions.with_suffix"
     if index < 2:
         raise ValidationError(

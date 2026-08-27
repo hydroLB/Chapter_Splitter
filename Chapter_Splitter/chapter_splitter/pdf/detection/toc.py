@@ -30,22 +30,7 @@ class TextExtractableReaderProtocol(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class TocEntry:
-    """Parsed TOC entry.
-
-    Summary:
-        Provide an intermediate representation while converting TOC lines to chapter ranges.
-    Ties to other methods:
-        Used by detect_chapters_from_toc_page.
-    Inputs:
-        - title: Parsed chapter title.
-        - page: Parsed 1-based page number.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Parsed TOC entry."""
 
     title: str
     page: int
@@ -53,21 +38,7 @@ class TocEntry:
 
 @dataclass(frozen=True, slots=True)
 class TocDetectionReport:
-    """Structured TOC detection output and diagnostics.
-
-    Summary:
-        Provide detection results with confidence and warnings for UI surfaces.
-    Ties to other methods:
-        Returned by detect_best_toc_chapters and consumed by the unified detector.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Structured TOC detection output and diagnostics."""
 
     chapters: tuple[ChapterDefinition, ...]
     confidence: float
@@ -86,27 +57,7 @@ def detect_chapters_from_toc_page(
     token: CancellationToken,
     location: str,
 ) -> list[ChapterDefinition]:
-    """Detect chapter ranges from a Table of Contents page.
-
-    Summary:
-        Provide a fallback chapter inference path when PDF outline metadata is missing.
-    Ties to other methods:
-        Used by the GUI when the user navigates to a TOC page and requests detection.
-    Inputs:
-        - reader: Reader with page text extraction support.
-        - toc_start_page: 1-based page number where the TOC starts.
-        - total_pages: Total pages in the document.
-        - detection: Detection configuration controlling parsing behavior.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - List of ChapterDefinition objects inferred from TOC entries.
-    Side effects:
-        Extracts text from PDF pages in memory.
-    Error handling:
-        - PdfProcessingError: When parsing fails or the TOC cannot be interpreted.
-    """
+    """Detect chapter ranges from a Table of Contents page."""
     report = detect_best_toc_chapters(
         reader=reader,
         total_pages=total_pages,
@@ -130,28 +81,7 @@ def detect_best_toc_chapters(
     location: str,
     force_hint_page: bool = False,
 ) -> TocDetectionReport:
-    """Detect chapters from TOC text by scanning candidate pages and scoring results.
-
-    Summary:
-        Provide a robust TOC fallback by trying multiple start pages and returning the best parse.
-    Ties to other methods:
-        Used by the unified detector and GUI preview action.
-    Inputs:
-        - reader: Reader with page text extraction support.
-        - total_pages: Total pages in the document.
-        - detection: Detection configuration controlling parsing behavior.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - toc_hint_page: Optional 1-based hint page where TOC starts.
-        - location: Fully qualified module and method name.
-        - force_hint_page: When True, only scan starting from toc_hint_page.
-    Outputs:
-        - TocDetectionReport containing best-effort chapters and diagnostics.
-    Side effects:
-        Extracts text from PDF pages in memory.
-    Error handling:
-        - PdfProcessingError: When inputs are invalid.
-    """
+    """Detect chapters from TOC text by scanning candidate pages and scoring results."""
     token.check(location)
     deadline.check(location)
     error_location = f"{__name__}.detect_best_toc_chapters"
@@ -257,7 +187,8 @@ def _scan_toc_from_start(
         if len(entries) >= detection.toc_max_entries:
             break
 
-    normalized = _normalize_toc_entries(entries, detection.toc_max_entries)
+    source_order_entries = _dedupe_toc_entries(entries, detection.toc_max_entries)
+    normalized = _normalize_toc_entries(source_order_entries, detection.toc_max_entries)
     if len(normalized) < detection.toc_min_entries:
         return TocDetectionReport(
             chapters=(),
@@ -268,7 +199,7 @@ def _scan_toc_from_start(
             entries_found=len(normalized),
         )
     chapters = _toc_entries_to_chapters(normalized, total_pages, location)
-    confidence, warnings = _score_toc_entries(normalized, chapters, total_pages)
+    confidence, warnings = _score_toc_entries(source_order_entries, chapters, total_pages)
     return TocDetectionReport(
         chapters=tuple(chapters),
         confidence=confidence,
@@ -313,24 +244,7 @@ def _parse_toc_line(
     ignore_patterns: Sequence[re.Pattern[str]],
     location: str,
 ) -> TocEntry | None:
-    """Parse a single TOC line into a TocEntry when it matches expected patterns.
-
-    Summary:
-        Isolate TOC line parsing so detection stays readable and easy to tune.
-    Ties to other methods:
-        Used by detect_chapters_from_toc_page.
-    Inputs:
-        - line: Candidate TOC line.
-        - entry_patterns: Compiled patterns exposing groups named 'title' and 'page'.
-        - ignore_patterns: Patterns identifying ignorable titles.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - TocEntry when parsed, otherwise None.
-    Side effects:
-        None.
-    Error handling:
-        - PdfProcessingError: When a match yields an invalid page number.
-    """
+    """Parse a single TOC line into a TocEntry when it matches expected patterns."""
     error_location = f"{__name__}._parse_toc_line"
     context = f" Context: {location}." if location else ""
     if not line.strip():
@@ -364,12 +278,16 @@ def _clean_title(title: str) -> str:
 
 
 def _normalize_toc_entries(entries: Sequence[TocEntry], max_entries: int) -> list[TocEntry]:
+    return sorted(_dedupe_toc_entries(entries, max_entries), key=lambda item: item.page)
+
+
+def _dedupe_toc_entries(entries: Sequence[TocEntry], max_entries: int) -> list[TocEntry]:
+    """Deduplicate TOC entries while retaining their source order."""
     by_page: dict[int, TocEntry] = {}
     for entry in entries:
         if entry.page not in by_page:
             by_page[entry.page] = entry
-    ordered = sorted(by_page.values(), key=lambda item: item.page)
-    return ordered[:max_entries]
+    return list(by_page.values())[:max_entries]
 
 
 def _toc_entries_to_chapters(

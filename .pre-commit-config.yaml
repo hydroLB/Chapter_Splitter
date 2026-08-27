@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files
         args: ["--maxkb=512"]
@@ -14,17 +14,17 @@ repos:
         args: ["--allow-missing-credentials"]
       - id: detect-private-key
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
+    rev: v0.15.21
     hooks:
       - id: ruff
         args: ["--fix", "--exit-non-zero-on-fix"]
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v2.2.0
     hooks:
       - id: mypy
         args: ["--config-file=pyproject.toml"]
-        additional_dependencies: ["pypdf==6.7.5", "pytest==8.2.1", "types-setuptools"]
+        additional_dependencies: ["pypdf==6.16.0", "pytest==9.0.3"]
   - repo: local
     hooks:
       - id: dependency-policy
@@ -43,7 +43,11 @@ repos:
         language: system
         pass_filenames: false
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.2
+    rev: v8.30.1
     hooks:
       - id: gitleaks
+        name: Detect hardcoded secrets in repository history
+        entry: gitleaks git --redact --verbose .
+        pass_filenames: false
+        always_run: true
         stages: [manual, pre-push]

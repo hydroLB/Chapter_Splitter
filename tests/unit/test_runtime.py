@@ -13,42 +13,14 @@ from chapter_splitter.core import CancellationError, CancellationToken, register
 
 
 def test_cancellation_token_requires_reason() -> None:
-    """Verify cancellation requires a reason.
-
-    Summary:
-        Ensure cancellation diagnostics are always actionable.
-    Ties to other methods:
-        Covers chapter_splitter.core.runtime.CancellationToken.cancel.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify cancellation requires a reason."""
     token = CancellationToken()
     with pytest.raises(CancellationError):
         token.cancel("", "tests.unit.test_runtime")
 
 
 def test_cancellation_token_check_raises_when_cancelled() -> None:
-    """Verify check raises after cancellation is requested.
-
-    Summary:
-        Provide a consistent cancellation guard across long-running operations.
-    Ties to other methods:
-        Covers chapter_splitter.core.runtime.CancellationToken.check.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        Cancels the token.
-    Error handling:
-        - None.
-    """
+    """Verify check raises after cancellation is requested."""
     token = CancellationToken()
     token.cancel("stop", "tests.unit.test_runtime")
     assert token.is_cancelled() is True
@@ -57,21 +29,7 @@ def test_cancellation_token_check_raises_when_cancelled() -> None:
 
 
 def test_register_signal_handlers_installs_handlers(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify register_signal_handlers installs handlers and triggers shutdown.
-
-    Summary:
-        Ensure CLI and GUI boundaries share a consistent shutdown path.
-    Ties to other methods:
-        Covers chapter_splitter.core.runtime.register_signal_handlers.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Patches signal.signal to capture handlers.
-    Error handling:
-        - None.
-    """
+    """Verify register_signal_handlers installs handlers and triggers shutdown."""
     token = CancellationToken()
     logger = logging.getLogger("tests.unit.test_runtime")
     called: list[str] = []
@@ -99,21 +57,7 @@ def test_register_signal_handlers_installs_handlers(monkeypatch: pytest.MonkeyPa
 def test_register_signal_handlers_surfaces_registration_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Verify registration errors surface as CancellationError.
-
-    Summary:
-        Ensure failures to register signal handlers fail fast and clearly.
-    Ties to other methods:
-        Covers exception handling in register_signal_handlers.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Patches signal.signal to raise.
-    Error handling:
-        - None.
-    """
+    """Verify registration errors surface as CancellationError."""
     token = CancellationToken()
     logger = logging.getLogger("tests.unit.test_runtime")
 

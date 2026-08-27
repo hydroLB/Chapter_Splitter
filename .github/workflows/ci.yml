@@ -4,20 +4,29 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version-file: ".python-version"
           cache: "pip"
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
+            requirements-bundle.txt
             pyproject.toml
       - name: Install dependencies
         run: make install-dev
@@ -33,49 +42,6 @@ jobs:
         run: make repo-hygiene
       - name: Docstring standards
         run: make docstrings
-      - name: Detect touched UI/workflow files
-        id: touched_ui_workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            base_sha="${{ github.event.pull_request.base.sha }}"
-          else
-            base_sha="${{ github.event.before }}"
-          fi
-
-          if [[ -z "${base_sha}" || "${base_sha}" =~ ^0+$ ]]; then
-            base_sha="$(git rev-list --max-count=1 HEAD^ || true)"
-          fi
-
-          if [[ -z "${base_sha}" ]]; then
-            git ls-files > /tmp/changed_files.txt
-          else
-            git diff --name-only "${base_sha}" "${GITHUB_SHA}" > /tmp/changed_files.txt
-          fi
-
-          awk '/^Chapter_Splitter\/chapter_splitter\/ui\/qt\/.*\.py$/' \
-            /tmp/changed_files.txt > /tmp/touched_ui_workflow_files.txt || true
-
-          file_count="$(wc -l < /tmp/touched_ui_workflow_files.txt | tr -d ' ')"
-          if [[ "${file_count}" -gt 0 ]]; then
-            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
-            tr '\n' '\0' < /tmp/touched_ui_workflow_files.txt > /tmp/touched_ui_workflow_files.nul
-            echo "Touched UI/workflow files:"
-            cat /tmp/touched_ui_workflow_files.txt
-          else
-            echo "has_changes=false" >> "${GITHUB_OUTPUT}"
-            : > /tmp/touched_ui_workflow_files.nul
-            echo "No touched UI/workflow files detected."
-          fi
-      - name: Touched UI/workflow warning gate
-        if: steps.touched_ui_workflow.outputs.has_changes == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          xargs -0 ruff check --select W < /tmp/touched_ui_workflow_files.nul
-          xargs -0 mypy --config-file pyproject.toml < /tmp/touched_ui_workflow_files.nul
       - name: Tests
         run: make test
       - name: Build coverage artifact
@@ -84,11 +50,11 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -f ".coverage" ]]; then
-            coverage xml -o coverage.xml
+            .venv/bin/python -m coverage xml -o coverage.xml
           fi
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: quality-coverage
           path: |
@@ -100,10 +66,32 @@ jobs:
       - name: Release discipline
         run: make release-check
       - name: Build package
+        id: build_package
         run: make build
+      - name: Verify built wheel in an isolated environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          wheel_path="$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+          test -n "${wheel_path}"
+
+          python -m venv /tmp/chapter-splitter-wheel
+          /tmp/chapter-splitter-wheel/bin/python -m pip install "${wheel_path}"
+          /tmp/chapter-splitter-wheel/bin/chapter-splitter --help >/dev/null
+          /tmp/chapter-splitter-wheel/bin/python - <<'PY'
+          from importlib.resources import files
+
+          assert files("chapter_splitter").joinpath("py.typed").is_file()
+          PY
+
+          if gui_output="$(/tmp/chapter-splitter-wheel/bin/chapter-splitter-gui 2>&1)"; then
+            echo "chapter-splitter-gui unexpectedly succeeded without desktop dependencies" >&2
+            exit 1
+          fi
+          grep -F ".[desktop]" <<<"${gui_output}"
       - name: Upload build artifact
-        if: always()
-        uses: actions/upload-artifact@v4
+        if: ${{ success() && steps.build_package.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: quality-dist
           path: dist/*
@@ -111,9 +99,59 @@ jobs:
 
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
       - name: Run gitleaks
-        uses: gacts/gitleaks@v1
+        uses: gacts/gitleaks@7f2df3bc5fcf5223ae00c23e0f9311d66a157f9d # v1
+
+  desktop-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version-file: ".python-version"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            pyproject.toml
+      - name: Install desktop test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -e '.[desktop]'
+      - name: Run headless desktop and Qt behavior tests
+        run: |
+          python -m pytest -q \
+            tests/e2e/test_gui_smoke.py \
+            tests/unit/test_chapters_table_qt.py \
+            tests/unit/test_qt_workers.py \
+            tests/unit/test_qt_workflow_actions_async.py
+
+  standalone-bundle-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version-file: ".python-version"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+      - name: Install bundle dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[bundle]'
+      - name: Build and smoke-test Ubuntu GUI and CLI bundles
+        run: python scripts/bundle_pyinstaller.py --target both

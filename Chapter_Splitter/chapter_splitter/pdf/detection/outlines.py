@@ -31,26 +31,7 @@ def detect_chapters_from_outlines(
     location: str,
     detection_config: DetectionConfig | None = None,
 ) -> list[ChapterDefinition]:
-    """Inspect PDF outlines and return inferred chapter ranges.
-
-    Summary:
-        Use top level PDF outlines to infer chapter boundaries.
-    Ties to other methods:
-        Used by the UI auto detect feature and CLI workflows.
-    Inputs:
-        - pdf_path: Path to the PDF file.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - retry_config: Retry policy for PDF loading.
-        - io_config: IO configuration for timeouts.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - List of ChapterDefinition objects.
-    Side effects:
-        Reads the PDF file from disk.
-    Error handling:
-        - PdfProcessingError: When outlines are malformed or unavailable.
-    """
+    """Inspect PDF outlines and return inferred chapter ranges."""
     token.check(location)
     read_deadline = Deadline(io_config.pdf_read_timeout_seconds)
     reader = load_reader(pdf_path, read_deadline, token, retry_config, location)
@@ -87,25 +68,7 @@ def detect_chapters_from_outlines_reader(
     outline_merge_tiny_max_pages: int = 0,
     outline_merge_tiny_title_joiner: str = " + ",
 ) -> list[ChapterDefinition]:
-    """Inspect outlines on an already-loaded reader and infer chapter ranges.
-
-    Summary:
-        Provide a reusable outlines implementation when the caller already has a reader.
-    Ties to other methods:
-        Used by unified detection and GUI workflows.
-    Inputs:
-        - reader: Reader exposing outlines and destination page lookup.
-        - total_pages: Total page count for end-range calculations.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - List of ChapterDefinition objects inferred from outlines.
-    Side effects:
-        None.
-    Error handling:
-        - PdfProcessingError: When outlines are malformed or destinations are invalid.
-    """
+    """Inspect outlines on an already-loaded reader and infer chapter ranges."""
     token.check(location)
     deadline.check(location)
     error_location = f"{__name__}.detect_chapters_from_outlines_reader"
@@ -117,13 +80,17 @@ def detect_chapters_from_outlines_reader(
                 f"total_pages must be >= 1 (got {total_pages}).{context}",
             )
         )
-    extracted = entries or extract_outline_entries(
-        reader,
-        deadline,
-        token,
-        location,
-        outline_min_depth=outline_min_depth,
-        outline_ignore_title_regexes=outline_ignore_title_regexes,
+    extracted = (
+        entries
+        if entries is not None
+        else extract_outline_entries(
+            reader,
+            deadline,
+            token,
+            location,
+            outline_min_depth=outline_min_depth,
+            outline_ignore_title_regexes=outline_ignore_title_regexes,
+        )
     )
     if not extracted:
         return []
@@ -153,24 +120,7 @@ def extract_outline_entries(
     outline_min_depth: int = 0,
     outline_ignore_title_regexes: Sequence[str] = (),
 ) -> list[tuple[str, int]]:
-    """Extract top-level outline entries as (title, 1-based page) pairs.
-
-    Summary:
-        Provide a lightweight outline extraction API for unified detection and reporting.
-    Ties to other methods:
-        Used by detect_chapters_from_outlines_reader and the unified detector.
-    Inputs:
-        - reader: Reader exposing outline and destination page lookup.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - List of (title, page) tuples.
-    Side effects:
-        None.
-    Error handling:
-        - PdfProcessingError: When outlines are malformed or destinations are invalid.
-    """
+    """Extract top-level outline entries as (title, 1-based page) pairs."""
     token.check(location)
     deadline.check(location)
     error_location = f"{__name__}.extract_outline_entries"
@@ -205,22 +155,7 @@ def extract_outline_entries(
     candidates: list[tuple[int, str, int]] = []
 
     def _walk(items: Sequence[object], depth: int) -> None:
-        """Walk outline items and collect top level entries.
-
-        Summary:
-            Traverse nested outlines and collect depth zero items as chapter candidates.
-        Ties to other methods:
-            Used by extract_outline_entries.
-        Inputs:
-            - items: Outline items.
-            - depth: Current nesting depth.
-        Outputs:
-            - None.
-        Side effects:
-            Appends to the entries list.
-        Error handling:
-            - PdfProcessingError: When an outline destination is invalid.
-        """
+        """Walk outline items and collect top level entries."""
         for item in items:
             token.check(location)
             deadline.check(location)
@@ -255,23 +190,7 @@ def _merge_tiny_chapters(
     max_pages: int,
     title_joiner: str,
 ) -> list[ChapterDefinition]:
-    """Merge small outline-derived chapters into adjacent ranges.
-
-    Summary:
-        Reduce noisy outline outputs such as one-page entries that fragment the chapter list.
-    Ties to other methods:
-        Used by detect_chapters_from_outlines_reader after chapter ranges are derived.
-    Inputs:
-        - chapters: Outline-derived chapters to post-process.
-        - max_pages: Maximum page count considered "tiny" (<= max_pages).
-        - title_joiner: Joiner used when combining titles.
-    Outputs:
-        - New list of ChapterDefinition objects with merged ranges.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Merge small outline-derived chapters into adjacent ranges."""
     if max_pages <= 0:
         return chapters
     if not title_joiner.strip():

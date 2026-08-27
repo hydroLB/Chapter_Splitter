@@ -12,21 +12,7 @@ from chapter_splitter.utils import RateLimiter, retry_with_backoff
 
 
 def test_retry_with_backoff_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify retry helper retries transient failures before succeeding.
-
-    Summary:
-        Prevent one-off failures from breaking workflows.
-    Ties to other methods:
-        Covers chapter_splitter.utils.retry.retry_with_backoff.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Patches time.sleep and random.random for determinism.
-    Error handling:
-        - None.
-    """
+    """Verify retry helper retries transient failures before succeeding."""
     sleeps: list[float] = []
     monkeypatch.setattr(time, "sleep", lambda seconds: sleeps.append(seconds))
     monkeypatch.setattr(random, "random", lambda: 0.0)
@@ -63,21 +49,7 @@ def test_retry_with_backoff_retries_then_succeeds(monkeypatch: pytest.MonkeyPatc
 
 
 def test_retry_with_backoff_exhaustion_raises_io_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify exhaustion raises a stable IoError.
-
-    Summary:
-        Keep error handling consistent at workflow boundaries.
-    Ties to other methods:
-        Covers chapter_splitter.utils.retry.retry_with_backoff.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Patches time.sleep for determinism.
-    Error handling:
-        - None.
-    """
+    """Verify exhaustion raises a stable IoError."""
     monkeypatch.setattr(time, "sleep", lambda _seconds: None)
 
     def action() -> None:
@@ -96,21 +68,7 @@ def test_retry_with_backoff_exhaustion_raises_io_error(monkeypatch: pytest.Monke
 
 
 def test_retry_with_backoff_validates_attempt_count() -> None:
-    """Verify invalid attempt count is rejected.
-
-    Summary:
-        Prevent silent retry misconfiguration.
-    Ties to other methods:
-        Covers chapter_splitter.utils.retry.retry_with_backoff.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify invalid attempt count is rejected."""
     with pytest.raises(IoError):
         retry_with_backoff(
             action=lambda: "x",
@@ -124,21 +82,7 @@ def test_retry_with_backoff_validates_attempt_count() -> None:
 
 
 def test_retry_with_backoff_rejects_invalid_delay_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify invalid delay bounds are rejected with a stable IoError.
-
-    Summary:
-        Prevent invalid retry configuration from failing later with low-signal exceptions.
-    Ties to other methods:
-        Covers chapter_splitter.utils.retry.retry_with_backoff.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Patches time.sleep for determinism.
-    Error handling:
-        - None.
-    """
+    """Verify invalid delay bounds are rejected with a stable IoError."""
     sleeps: list[float] = []
 
     def _sleep(seconds: float) -> None:
@@ -165,21 +109,7 @@ def test_retry_with_backoff_rejects_invalid_delay_bounds(monkeypatch: pytest.Mon
 
 
 def test_retry_with_backoff_respects_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify cancellation stops the retry loop.
-
-    Summary:
-        Ensure long-running retries have a clear cancellation path.
-    Ties to other methods:
-        Covers chapter_splitter.utils.retry.retry_with_backoff.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Cancels a token before retries.
-    Error handling:
-        - None.
-    """
+    """Verify cancellation stops the retry loop."""
     monkeypatch.setattr(time, "sleep", lambda _seconds: None)
     token = CancellationToken()
     token.cancel("stop", "tests.unit.test_retry_and_rate_limit")
@@ -198,21 +128,7 @@ def test_retry_with_backoff_respects_cancellation(monkeypatch: pytest.MonkeyPatc
 
 
 def test_rate_limiter_enforces_interval(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify the rate limiter enforces a minimum interval.
-
-    Summary:
-        Prevent UI actions from being triggered too rapidly.
-    Ties to other methods:
-        Covers chapter_splitter.utils.rate_limit.RateLimiter.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Patches time.monotonic for determinism.
-    Error handling:
-        - None.
-    """
+    """Verify the rate limiter enforces a minimum interval."""
     times = iter([1.0, 1.1, 2.1])
     monkeypatch.setattr(time, "monotonic", lambda: next(times))
 
@@ -223,21 +139,7 @@ def test_rate_limiter_enforces_interval(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_rate_limiter_rejects_negative_interval() -> None:
-    """Verify negative interval is rejected.
-
-    Summary:
-        Keep configuration strict and avoid surprising behavior.
-    Ties to other methods:
-        Covers RateLimiter.__init__ validation.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Verify negative interval is rejected."""
     with pytest.raises(ValidationError):
         RateLimiter(-1.0)
 
@@ -245,22 +147,7 @@ def test_rate_limiter_rejects_negative_interval() -> None:
 def test_rate_limiter_allows_first_action_at_time_zero(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Verify the first action is allowed even when monotonic starts at zero.
-
-    Summary:
-        Ensure the rate limiter does not mistakenly block the initial action on platforms where
-        time.monotonic() can return 0.0 at process start.
-    Ties to other methods:
-        Covers chapter_splitter.utils.rate_limit.RateLimiter.allow.
-    Inputs:
-        - monkeypatch: Pytest monkeypatch fixture.
-    Outputs:
-        - None.
-    Side effects:
-        Patches time.monotonic for determinism.
-    Error handling:
-        - None.
-    """
+    """Verify the first action is allowed even when monotonic starts at zero."""
     monkeypatch.setattr(time, "monotonic", lambda: 0.0)
     limiter = RateLimiter(1.0)
     assert limiter.allow() is True

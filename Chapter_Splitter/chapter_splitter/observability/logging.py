@@ -7,32 +7,24 @@ import logging
 import re
 import time
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from contextvars import ContextVar
 
 from ..config.schema import AppConfig, LoggingConfig
 from ..core.errors import ConfigurationError, format_error_message
 
 _CORRELATION_ID: ContextVar[str] = ContextVar("correlation_id", default="")
+_CIRCULAR_REFERENCE = "[CIRCULAR]"
+_REDACTED = "[REDACTED]"
+
+
+def _normalize_sensitive_key(key: str) -> str:
+    """Return a separator-insensitive, case-normalized key for policy matching."""
+    return "".join(character for character in key.casefold() if character.isalnum())
 
 
 def new_correlation_id(prefix: str, location: str) -> str:
-    """Create a new correlation ID.
-
-    Summary:
-        Generate a unique correlation ID for log tracing.
-    Ties to other methods:
-        Used by entry points and long running workflows.
-    Inputs:
-        - prefix: Prefix for the correlation ID.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - Correlation ID string.
-    Side effects:
-        None.
-    Error handling:
-        - ConfigurationError: When the prefix is invalid.
-    """
+    """Create a new correlation ID."""
     error_location = f"{__name__}.new_correlation_id"
     context = f" Context: {location}." if location else ""
     if not prefix.strip():
@@ -46,22 +38,7 @@ def new_correlation_id(prefix: str, location: str) -> str:
 
 
 def set_correlation_id(value: str, location: str) -> None:
-    """Set the current correlation ID.
-
-    Summary:
-        Store the correlation ID in context local storage.
-    Ties to other methods:
-        Used by entry points and workflow boundaries.
-    Inputs:
-        - value: Correlation ID to store.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - None.
-    Side effects:
-        Updates the context variable for correlation ID.
-    Error handling:
-        - ConfigurationError: When the correlation ID is empty.
-    """
+    """Set the current correlation ID."""
     error_location = f"{__name__}.set_correlation_id"
     context = f" Context: {location}." if location else ""
     if not value.strip():
@@ -72,202 +49,91 @@ def set_correlation_id(value: str, location: str) -> None:
 
 
 def get_correlation_id() -> str:
-    """Return the current correlation ID.
-
-    Summary:
-        Provide correlation ID access for log formatters.
-    Ties to other methods:
-        Used by CorrelationIdFilter.
-    Inputs:
-        - None.
-    Outputs:
-        - Correlation ID string.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Return the current correlation ID."""
     return _CORRELATION_ID.get()
 
 
 class CorrelationIdFilter(logging.Filter):
-    """Inject correlation IDs into log records.
-
-    Summary:
-        Ensure log records include a correlation_id field.
-    Ties to other methods:
-        Applied in configure_logging to enrich log records.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Inject correlation IDs into log records."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Add correlation ID to the log record.
-
-        Summary:
-            Ensure every log record contains a correlation ID field.
-        Ties to other methods:
-            Applied in configure_logging.
-        Inputs:
-            - record: LogRecord to enrich.
-        Outputs:
-            - True to allow logging.
-        Side effects:
-            Adds correlation_id attribute to the record.
-        Error handling:
-            - None.
-        """
+        """Add correlation ID to the log record."""
         record.correlation_id = get_correlation_id() or "unset"
         return True
 
 
 class RedactionPolicy:
-    """Redact sensitive content from log fields.
-
-    Summary:
-        Define redaction rules for structured logging output.
-    Ties to other methods:
-        Used by StructuredFormatter when building log payloads.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Redact sensitive content from log fields."""
 
     def __init__(self, keys: Iterable[str], values: Iterable[str]) -> None:
-        """Initialize the redaction policy.
-
-        Summary:
-            Define which fields and values must be redacted in logs.
-        Ties to other methods:
-            Used by StructuredFormatter to sanitize output.
-        Inputs:
-            - keys: Field names to redact.
-            - values: Substrings to redact from text fields.
-        Outputs:
-            - None.
-        Side effects:
-            Compiles internal redaction patterns.
-        Error handling:
-            - None.
-        """
-        self._key_set = {key.lower() for key in keys}
+        """Initialize the redaction policy."""
+        self._key_set = {_normalize_sensitive_key(key) for key in keys}
         self._value_patterns = [
             re.compile(re.escape(value), re.IGNORECASE) for value in values if value
         ]
 
     def redact_text(self, text: str) -> str:
-        """Redact sensitive substrings in a text field.
-
-        Summary:
-            Protect secrets from appearing in log messages.
-        Ties to other methods:
-            Called by StructuredFormatter for log message strings.
-        Inputs:
-            - text: Text to redact.
-        Outputs:
-            - Redacted text.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Redact sensitive substrings in a text field."""
         redacted = text
         for pattern in self._value_patterns:
-            redacted = pattern.sub("[REDACTED]", redacted)
+            redacted = pattern.sub(_REDACTED, redacted)
         return redacted
 
     def redact_mapping(self, fields: Mapping[str, object]) -> dict[str, object]:
-        """Redact sensitive fields in structured log output.
+        """Redact sensitive fields in structured log output."""
+        return self._redact_mapping(fields, active_container_ids=set())
 
-        Summary:
-            Remove or mask fields identified as sensitive.
-        Ties to other methods:
-            Called by StructuredFormatter before JSON serialization.
-        Inputs:
-            - fields: Mapping of log fields.
-        Outputs:
-            - Redacted field mapping.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
-        redacted: dict[str, object] = {}
-        for key, value in fields.items():
-            if key.lower() in self._key_set:
-                redacted[key] = "[REDACTED]"
-            elif isinstance(value, str):
-                redacted[key] = self.redact_text(value)
-            else:
-                redacted[key] = value
-        return redacted
+    def _redact_mapping(
+        self,
+        fields: Mapping[str, object],
+        active_container_ids: set[int],
+    ) -> dict[str, object]:
+        """Recursively redact a mapping while detecting cycles on the active path."""
+        container_id = id(fields)
+        if container_id in active_container_ids:
+            return {"circular_reference": _CIRCULAR_REFERENCE}
+
+        active_container_ids.add(container_id)
+        try:
+            redacted: dict[str, object] = {}
+            for key, value in fields.items():
+                if _normalize_sensitive_key(key) in self._key_set:
+                    redacted[key] = _REDACTED
+                else:
+                    redacted[key] = self._redact_value(value, active_container_ids)
+            return redacted
+        finally:
+            active_container_ids.remove(container_id)
+
+    def _redact_value(self, value: object, active_container_ids: set[int]) -> object:
+        """Recursively sanitize supported JSON-like structured values."""
+        if isinstance(value, str):
+            return self.redact_text(value)
+        if isinstance(value, Mapping):
+            return self._redact_mapping(value, active_container_ids)
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            container_id = id(value)
+            if container_id in active_container_ids:
+                return _CIRCULAR_REFERENCE
+            active_container_ids.add(container_id)
+            try:
+                return [self._redact_value(item, active_container_ids) for item in value]
+            finally:
+                active_container_ids.remove(container_id)
+        return value
 
 
 class StructuredFormatter(logging.Formatter):
-    """Format log records as structured JSON.
-
-    Summary:
-        Produce consistent JSON logs with redaction and metadata.
-    Ties to other methods:
-        Used by configure_logging to build logging handlers.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Format log records as structured JSON."""
 
     def __init__(self, app_config: AppConfig, redaction: RedactionPolicy) -> None:
-        """Initialize the formatter.
-
-        Summary:
-            Provide consistent JSON log output with redaction.
-        Ties to other methods:
-            Used by configure_logging to build handlers.
-        Inputs:
-            - app_config: Application configuration for environment metadata.
-            - redaction: Redaction policy for sensitive fields.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Initialize the formatter."""
         super().__init__()
         self._app_config = app_config
         self._redaction = redaction
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format a log record into JSON.
-
-        Summary:
-            Serialize log records with consistent fields and redaction.
-        Ties to other methods:
-            Used by logging handlers configured in configure_logging.
-        Inputs:
-            - record: Log record to format.
-        Outputs:
-            - JSON log string.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Format a log record into JSON."""
         message = self._redaction.redact_text(record.getMessage())
         base_fields: dict[str, object] = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.created)),
@@ -278,28 +144,20 @@ class StructuredFormatter(logging.Formatter):
             "environment": self._app_config.environment,
         }
         extras = _extract_extra_fields(record, base_fields.keys())
+        if record.exc_info is not None:
+            exception = record.exc_info[1]
+            extras["exception"] = {
+                "type": type(exception).__name__ if exception is not None else "Unknown",
+                "message": str(exception) if exception is not None else "",
+                "traceback": self.formatException(record.exc_info),
+            }
         merged = {**base_fields, **extras}
         redacted = self._redaction.redact_mapping(merged)
         return json.dumps(redacted, ensure_ascii=True)
 
 
 def _extract_extra_fields(record: logging.LogRecord, reserved: Iterable[str]) -> dict[str, object]:
-    """Extract non standard log record attributes as structured fields.
-
-    Summary:
-        Capture explicit extra fields supplied by the application.
-    Ties to other methods:
-        Used by StructuredFormatter during log formatting.
-    Inputs:
-        - record: Log record containing extra attributes.
-        - reserved: Keys that are already part of the base log payload.
-    Outputs:
-        - Mapping of extra field values.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """Extract non standard log record attributes as structured fields."""
     reserved_set = set(reserved)
     extras: dict[str, object] = {}
     for key, value in record.__dict__.items():
@@ -335,22 +193,7 @@ def _extract_extra_fields(record: logging.LogRecord, reserved: Iterable[str]) ->
 
 
 def configure_logging(app_config: AppConfig, logging_config: LoggingConfig) -> None:
-    """Configure structured logging for the application.
-
-    Summary:
-        Set up log handlers with structured formatting and redaction.
-    Ties to other methods:
-        Called by app and CLI entry points before any work begins.
-    Inputs:
-        - app_config: Application configuration.
-        - logging_config: Logging configuration.
-    Outputs:
-        - None.
-    Side effects:
-        Configures the global logging system.
-    Error handling:
-        - ConfigurationError: When logging level or formatter is invalid.
-    """
+    """Configure structured logging for the application."""
     formatter_name = logging_config.formatter.lower()
     if formatter_name != "json":
         raise ConfigurationError(
@@ -406,25 +249,7 @@ def log_event(
     message: str,
     fields: Mapping[str, object] | None,
 ) -> None:
-    """Log a structured event with consistent fields.
-
-    Summary:
-        Provide a single helper for structured event logging.
-    Ties to other methods:
-        Used across CLI, UI, and PDF processing modules.
-    Inputs:
-        - logger: Logger instance.
-        - level: Logging level.
-        - event: Short event name.
-        - message: Human readable message.
-        - fields: Extra structured fields to attach.
-    Outputs:
-        - None.
-    Side effects:
-        Emits a structured log record.
-    Error handling:
-        - ConfigurationError: When event or message is empty.
-    """
+    """Log a structured event with consistent fields."""
     error_location = f"{__name__}.log_event"
     if not event.strip():
         raise ConfigurationError(

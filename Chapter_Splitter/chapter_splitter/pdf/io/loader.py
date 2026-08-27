@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pypdf.errors import PdfReadError
+from pypdf.errors import FileNotDecryptedError, PdfReadError  # type: ignore[attr-defined]
 
 from ...config.schema import RetryConfig
 from ...core.errors import IoError, PdfProcessingError, format_error_message
@@ -21,56 +21,38 @@ def load_reader(
     retry_config: RetryConfig,
     location: str,
 ) -> PdfReader:
-    """Load a PdfReader with retries and deadline checks.
-
-    Summary:
-        Provide resilient PDF loading with clear error reporting.
-    Ties to other methods:
-        Used by outline detection and splitting workflows.
-    Inputs:
-        - pdf_path: Path to the PDF file.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - retry_config: Retry configuration for transient failures.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - PdfReader instance.
-    Side effects:
-        Reads the PDF file from disk.
-    Error handling:
-        - IoError: When the file cannot be read after retries.
-        - PdfProcessingError: When the PDF content is invalid.
-    """
+    """Load a PdfReader with retries and deadline checks."""
     error_location = f"{__name__}.load_reader"
     context = f" Context: {location}." if location else ""
     if not pdf_path.exists():
         raise IoError(
             format_error_message(error_location, f"PDF path does not exist: {pdf_path}.{context}")
         )
+    if not pdf_path.is_file():
+        raise IoError(
+            format_error_message(error_location, f"PDF path is not a file: {pdf_path}.{context}")
+        )
 
     def _open() -> PdfReader:
-        """Open a PDF reader instance.
-
-        Summary:
-            Isolate reader creation for retry and timeout control.
-        Ties to other methods:
-            Used by load_reader as the retried action.
-        Inputs:
-            - None.
-        Outputs:
-            - PdfReader instance.
-        Side effects:
-            Opens the PDF file from disk.
-        Error handling:
-            - PdfProcessingError: When the PDF content is invalid.
-        """
+        """Open a PDF reader instance."""
         token.check(location)
         deadline.check(location)
         try:
             return PdfReader(str(pdf_path))
+        except FileNotDecryptedError as exc:
+            raise PdfProcessingError(
+                format_error_message(
+                    error_location,
+                    f"PDF is encrypted and requires a password: {pdf_path}.{context}",
+                )
+            ) from exc
         except PdfReadError as exc:
             raise PdfProcessingError(
-                format_error_message(error_location, f"Invalid PDF content: {pdf_path}.{context}")
+                format_error_message(
+                    error_location,
+                    f"Invalid PDF content: {pdf_path}. The file may be damaged or unsupported."
+                    f"{context}",
+                )
             ) from exc
 
     try:
@@ -85,31 +67,41 @@ def load_reader(
             token=token,
         )
     except IoError as exc:
+        source_error = exc.__cause__ if isinstance(exc.__cause__, OSError) else exc
         raise IoError(
             format_error_message(error_location, f"Unable to load PDF: {pdf_path}.{context}")
-        ) from exc
+        ) from source_error
 
 
 def get_total_pages(reader: PdfReader, location: str) -> int:
-    """Return page count for the given reader.
-
-    Summary:
-        Provide a clear, validated page count for a PDF reader.
-    Ties to other methods:
-        Used by splitting and validation workflows.
-    Inputs:
-        - reader: PdfReader instance.
-        - location: Fully qualified module and method name.
-    Outputs:
-        - Total page count.
-    Side effects:
-        None.
-    Error handling:
-        - PdfProcessingError: When the reader has no pages.
-    """
+    """Return page count for the given reader."""
     error_location = f"{__name__}.get_total_pages"
     context = f" Context: {location}." if location else ""
-    total_pages = len(reader.pages)
+    try:
+        total_pages = len(reader.pages)
+    except FileNotDecryptedError as exc:
+        raise PdfProcessingError(
+            format_error_message(
+                error_location,
+                f"Unable to read PDF pages because the file is encrypted and requires a password."
+                f"{context}",
+            )
+        ) from exc
+    except PdfReadError as exc:
+        raise PdfProcessingError(
+            format_error_message(
+                error_location,
+                f"Unable to read the PDF page count. The file may be damaged or unsupported."
+                f"{context}",
+            )
+        ) from exc
+    except OSError as exc:
+        raise IoError(
+            format_error_message(
+                error_location,
+                f"Unable to read the PDF page count from storage.{context}",
+            )
+        ) from exc
     if total_pages < 1:
         raise PdfProcessingError(
             format_error_message(error_location, f"PDF has no pages.{context}")

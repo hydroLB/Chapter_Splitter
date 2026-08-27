@@ -25,29 +25,7 @@ def retry_with_backoff(
     on_retry: Callable[[int, BaseException], None] | None = None,
     token: CancellationToken | None = None,
 ) -> T:
-    """Retry an action with exponential backoff and jitter.
-
-    Summary:
-        Provide a centralized retry policy for transient failures.
-    Ties to other methods:
-        Used by PDF loading and viewer launch operations.
-    Inputs:
-        - action: Callable to execute.
-        - exceptions: Exception types to retry.
-        - max_attempts: Maximum retry attempts.
-        - initial_delay_seconds: Initial delay between attempts.
-        - max_delay_seconds: Maximum delay between attempts.
-        - jitter_ratio: Jitter ratio applied to the delay.
-        - location: Fully qualified module and method name.
-        - on_retry: Optional callback executed before each retry.
-        - token: Optional cancellation token to stop retries.
-    Outputs:
-        - Result of the action when successful.
-    Side effects:
-        Sleeps between attempts.
-    Error handling:
-        - IoError: When all attempts fail.
-    """
+    """Retry an action with exponential backoff and jitter."""
     error_location = f"{__name__}.retry_with_backoff"
     context = f" Context: {location}." if location else ""
     if max_attempts < 1:

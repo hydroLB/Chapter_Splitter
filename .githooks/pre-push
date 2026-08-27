@@ -4,4 +4,5 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$ROOT_DIR"
+bash scripts/run_with_repo_python.sh -m pre_commit run --hook-stage pre-push --all-files
 exec make check

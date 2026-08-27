@@ -12,7 +12,6 @@ from .logging import (
     new_correlation_id,
     set_correlation_id,
 )
-from .metrics import MetricsSink, NoOpMetrics
 
 __all__ = [
     "CorrelationIdFilter",
@@ -21,8 +20,6 @@ __all__ = [
     "configure_logging",
     "get_correlation_id",
     "log_event",
-    "MetricsSink",
-    "NoOpMetrics",
     "new_correlation_id",
     "set_correlation_id",
 ]

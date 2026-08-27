@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import isfinite
 from typing import Literal
 
 from ....core.errors import ConfigurationError, format_error_message
@@ -10,21 +11,7 @@ OutputCollisionPolicy = Literal["error", "overwrite", "suffix"]
 
 
 class IOConfig:
-    """File and process IO configuration.
-
-    Summary:
-        Configure IO timeouts, output behavior, and page offsets.
-    Ties to other methods:
-        Used by PDF loading, writing, and viewer launching.
-    Inputs:
-        - None.
-    Outputs:
-        - None.
-    Side effects:
-        None.
-    Error handling:
-        - None.
-    """
+    """File and process IO configuration."""
 
     def __init__(
         self,
@@ -41,35 +28,7 @@ class IOConfig:
         infer_page_offset_from_labels: bool,
         infer_page_offset_min_sequential_numeric_labels: int,
     ) -> None:
-        """Initialize IO configuration.
-
-        Summary:
-            Define IO behavior including timeouts and output paths.
-        Ties to other methods:
-            Used by PDF loading, writing, and viewer launch.
-        Inputs:
-            - open_viewer: Whether to open PDFs in the system viewer.
-            - viewer_timeout_seconds: Timeout for viewer launch.
-            - pdf_read_timeout_seconds: Timeout for PDF read.
-            - pdf_write_timeout_seconds: Timeout for PDF write.
-            - operation_timeout_seconds: Timeout for long running operations.
-            - output_dir_suffix: Suffix appended to output directory.
-            - output_collision_policy: How to handle existing output paths.
-            - output_collision_max_suffix: Max suffix attempts when output_collision_policy is
-              suffix.
-            - fsync_writes: Whether to flush output to disk before renaming.
-            - page_offset: Default page offset for splits.
-            - infer_page_offset_from_labels: Whether to infer an effective page offset from PDF
-              page labels when possible.
-            - infer_page_offset_min_sequential_numeric_labels: Minimum number of sequential numeric
-              labels required to accept an inferred offset.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - None.
-        """
+        """Initialize IO configuration."""
         self.open_viewer = open_viewer
         self.viewer_timeout_seconds = viewer_timeout_seconds
         self.pdf_read_timeout_seconds = pdf_read_timeout_seconds
@@ -86,45 +45,35 @@ class IOConfig:
         )
 
     def validate(self, location: str) -> None:
-        """Validate IO configuration.
-
-        Summary:
-            Ensure IO timeouts and output suffixes are valid.
-        Ties to other methods:
-            Called by Settings.validate before IO is used.
-        Inputs:
-            - location: Fully qualified module and method name.
-        Outputs:
-            - None.
-        Side effects:
-            None.
-        Error handling:
-            - ConfigurationError: When IO settings are invalid.
-        """
+        """Validate IO configuration."""
         error_location = f"{__name__}.IOConfig.validate"
         context = f" Context: {location}." if location else ""
-        if self.viewer_timeout_seconds <= 0:
+        if not isfinite(self.viewer_timeout_seconds) or self.viewer_timeout_seconds <= 0:
             raise ConfigurationError(
                 format_error_message(
-                    error_location, f"io.viewer_timeout_seconds must be positive.{context}"
+                    error_location,
+                    f"io.viewer_timeout_seconds must be finite and positive.{context}",
                 )
             )
-        if self.pdf_read_timeout_seconds <= 0:
+        if not isfinite(self.pdf_read_timeout_seconds) or self.pdf_read_timeout_seconds <= 0:
             raise ConfigurationError(
                 format_error_message(
-                    error_location, f"io.pdf_read_timeout_seconds must be positive.{context}"
+                    error_location,
+                    f"io.pdf_read_timeout_seconds must be finite and positive.{context}",
                 )
             )
-        if self.pdf_write_timeout_seconds <= 0:
+        if not isfinite(self.pdf_write_timeout_seconds) or self.pdf_write_timeout_seconds <= 0:
             raise ConfigurationError(
                 format_error_message(
-                    error_location, f"io.pdf_write_timeout_seconds must be positive.{context}"
+                    error_location,
+                    f"io.pdf_write_timeout_seconds must be finite and positive.{context}",
                 )
             )
-        if self.operation_timeout_seconds <= 0:
+        if not isfinite(self.operation_timeout_seconds) or self.operation_timeout_seconds <= 0:
             raise ConfigurationError(
                 format_error_message(
-                    error_location, f"io.operation_timeout_seconds must be positive.{context}"
+                    error_location,
+                    f"io.operation_timeout_seconds must be finite and positive.{context}",
                 )
             )
         if not self.output_dir_suffix.strip():

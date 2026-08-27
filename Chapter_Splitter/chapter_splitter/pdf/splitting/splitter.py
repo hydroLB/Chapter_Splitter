@@ -30,35 +30,7 @@ def split_pdf_into_chapters(
     *,
     on_progress: Callable[[ChapterExportProgress], None] | None = None,
 ) -> list[ChapterOutput]:
-    """Split a PDF into chapter files.
-
-    Summary:
-        Preserve the historical splitter module seam while delegating implementation to the
-        internal engine package.
-    Inputs:
-        - pdf_path: Path to the source PDF.
-        - chapters: List of ChapterDefinition objects.
-        - page_offset: Optional offset applied when converting to zero-based indices.
-        - deadline: Deadline tracker for timeout enforcement.
-        - token: Cancellation token for graceful shutdown.
-        - retry_config: Retry policy for PDF loading.
-        - validation_config: Validation rules for chapters.
-        - io_config: IO configuration for output behavior.
-        - location: Fully qualified module and method name.
-        - output_dir: Optional output directory override.
-        - on_progress: Optional progress callback receiving per-chapter start and complete events.
-    Outputs:
-        - List of ChapterOutput objects with exported paths.
-    Side effects:
-        Delegates to the internal export engine and synchronizes monkeypatchable module state.
-    Error handling:
-        Propagates export validation, IO, and PDF processing errors from the internal engine.
-    Ties to other methods:
-        Delegates to chapter_splitter.pdf.splitting.engine.export.split_pdf_into_chapters.
-    Why this exists:
-        Existing callers and tests import and monkeypatch this module directly, so the facade must
-        preserve that compatibility seam.
-    """
+    """Split a PDF into chapter files."""
     export_engine = cast(Any, _export_engine)
     export_engine.PdfWriter = PdfWriter
     chapter_export = cast(Any, _chapter_export)

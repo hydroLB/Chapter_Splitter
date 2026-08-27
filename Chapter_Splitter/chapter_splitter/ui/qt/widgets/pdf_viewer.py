@@ -1,25 +1,10 @@
-"""PDF viewer widget backed by QtPdf.
-
-Summary:
-    Provide a true PDF renderer (vector) for crisp previews at any DPI.
-Inputs:
-    - None.
-Outputs:
-    - PdfViewerWidget which can load a PDF and provide current page state.
-Side effects:
-    Opens PDF files via QtPdf.
-Error handling:
-    Converts Qt load failures into False returns and safe signals.
-Ties to other methods:
-    Used by the main window to display PDFs and drive Set Start/End actions.
-Why this exists:
-    Tk-based previews are raster and cannot match system PDF viewers; QtPdf is vector.
-"""
+"""PDF viewer widget backed by QtPdf."""
 
 from __future__ import annotations
 
 from contextlib import suppress
 from pathlib import Path
+from typing import Any, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtPdf import QPdfDocument
@@ -29,44 +14,12 @@ from .pdf_state import PdfViewerState
 
 
 class PdfViewerWidget(QtWidgets.QWidget):
-    """PDF viewing widget with navigation and zoom.
-
-    Summary:
-        Wrap QPdfView and a small toolbar to provide page navigation, fit modes, and zoom.
-    Inputs:
-        - parent: Optional Qt parent widget.
-    Outputs:
-        - QWidget subclass with signals and helpers.
-    Side effects:
-        Creates Qt widgets and holds a QPdfDocument.
-    Error handling:
-        Validates page indices and handles load failures gracefully.
-    Ties to other methods:
-        Embedded by MainWindow and controlled by chapter actions.
-    Why this exists:
-        A dedicated widget keeps PDF view logic isolated from chapter grid logic.
-    """
+    """PDF viewing widget with navigation and zoom."""
 
     state_changed = QtCore.Signal(PdfViewerState)
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
-        """Initialize the PDF viewer widget.
-
-        Summary:
-            Construct the QtPdf document/viewer pair and a lightweight toolbar.
-        Inputs:
-            - parent: Optional Qt parent widget.
-        Outputs:
-            - None.
-        Side effects:
-            Allocates Qt widgets and attaches a QPdfDocument to a QPdfView.
-        Error handling:
-            Keeps the widget usable even when document loading fails later.
-        Ties to other methods:
-            Calls _build and _wire to set up UI and signals.
-        Why this exists:
-            The PDF viewer is a distinct concept from the chapter table and should remain isolated.
-        """
+        """Initialize the PDF viewer widget."""
         super().__init__(parent)
         self._doc = QPdfDocument(self)
         self._view = QPdfView(self)
@@ -83,23 +36,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._wire()
 
     def load_pdf(self, pdf_path: Path) -> bool:
-        """Load a PDF into the viewer.
-
-        Summary:
-            Open the specified PDF file and reset the viewer state.
-        Inputs:
-            - pdf_path: Path to a PDF file.
-        Outputs:
-            - True when loaded successfully, otherwise False.
-        Side effects:
-            Loads the document and updates the view.
-        Error handling:
-            Returns False on Qt load errors or invalid paths.
-        Ties to other methods:
-            Called by the workflow after file selection.
-        Why this exists:
-            The viewer must be ready before chapter actions can use page state.
-        """
+        """Load a PDF into the viewer."""
         if not isinstance(pdf_path, Path):
             return False
         if not pdf_path.exists():
@@ -121,109 +58,29 @@ class PdfViewerWidget(QtWidgets.QWidget):
         return True
 
     def current_page_1based(self) -> int:
-        """Return the current page as a 1-based number.
-
-        Summary:
-            Convert the internal 0-based page index into a human-friendly value.
-        Inputs:
-            - None.
-        Outputs:
-            - 1-based page number.
-        Side effects:
-            None.
-        Error handling:
-            Returns 1 when no document is loaded.
-        Ties to other methods:
-            Used by MainWindow boundary actions (Set Start/End, detect-from-page).
-        Why this exists:
-            The rest of the app uses 1-based pages for user-facing chapter definitions.
-        """
+        """Return the current page as a 1-based number."""
         return int(self._current_page) + 1
 
     def page_count(self) -> int:
-        """Return the current loaded document page count.
-
-        Summary:
-            Provide total page count of the loaded PDF document.
-        Inputs:
-            - None.
-        Outputs:
-            - Total page count integer.
-        Side effects:
-            None.
-        Error handling:
-            Returns 0 when no document is loaded.
-        Ties to other methods:
-            Used by UI to clamp navigation and chapter page bounds.
-        Why this exists:
-            Page count is needed for both navigation UI and chapter editing.
-        """
+        """Return the current loaded document page count."""
         return int(self._page_count)
 
     def set_fit_width(self) -> None:
-        """Set the view to fit width.
-
-        Summary:
-            Configure the view to fit pages to the available width.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Changes the QPdfView zoom mode.
-        Error handling:
-            No-ops when the view is unavailable.
-        Ties to other methods:
-            Used by the fit mode selector.
-        Why this exists:
-            Fit width is the most readable default for multi-page scrolling.
-        """
+        """Set the view to fit width."""
         self._view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
         self._set_fit_combo_value("Fit Width")
         self._update_zoom_ui()
         self._sync_zoom_label_later()
 
     def set_fit_page(self) -> None:
-        """Set the view to fit page.
-
-        Summary:
-            Configure the view to fit the whole page into the viewport.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Changes the QPdfView zoom mode.
-        Error handling:
-            No-ops when the view is unavailable.
-        Ties to other methods:
-            Used by the fit mode selector.
-        Why this exists:
-            Fit page helps users quickly see page boundaries and layout.
-        """
+        """Set the view to fit page."""
         self._view.setZoomMode(QPdfView.ZoomMode.FitInView)
         self._set_fit_combo_value("Fit Page")
         self._update_zoom_ui()
         self._sync_zoom_label_later()
 
     def set_manual_zoom(self, zoom: float) -> None:
-        """Set a manual zoom level.
-
-        Summary:
-            Switch the viewer into custom zoom mode and apply the specified zoom factor.
-        Inputs:
-            - zoom: Zoom factor where 1.0 is 100%.
-        Outputs:
-            - None.
-        Side effects:
-            Updates the QPdfView zoom factor.
-        Error handling:
-            Clamps invalid zoom inputs and ignores non-positive values.
-        Ties to other methods:
-            Used by zoom controls and the fit mode selector.
-        Why this exists:
-            Users need a deterministic 100% mode to compare with system PDF viewers.
-        """
+        """Set a manual zoom level."""
         if zoom <= 0:
             return
         self._view.setZoomMode(QPdfView.ZoomMode.Custom)
@@ -233,43 +90,11 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._update_zoom_ui()
 
     def zoom_factor(self) -> float:
-        """Return the current zoom factor.
-
-        Summary:
-            Expose the underlying QPdfView zoom factor for UI display and stepping.
-        Inputs:
-            - None.
-        Outputs:
-            - Zoom factor float.
-        Side effects:
-            None.
-        Error handling:
-            Returns 1.0 when the view reports invalid values.
-        Ties to other methods:
-            Used by manual zoom updates and labels.
-        Why this exists:
-            Zoom is a first-class UI control for inspecting PDFs on high DPI displays.
-        """
+        """Return the current zoom factor."""
         return float(self._view.zoomFactor())
 
     def _build(self) -> None:
-        """Build the toolbar and the PDF view.
-
-        Summary:
-            Create navigation controls and configure the QPdfView for multi-page scroll.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Allocates Qt widgets and sets up layout.
-        Error handling:
-            Uses conservative defaults for sizing to avoid clipped controls.
-        Ties to other methods:
-            Called by __init__.
-        Why this exists:
-            Separating UI construction from behavior wiring keeps the widget readable.
-        """
+        """Build the toolbar and the PDF view."""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -281,13 +106,22 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._prev_btn = QtWidgets.QToolButton(self)
         self._prev_btn.setProperty("button_role", "toolbar")
         self._prev_btn.setText("◀")
+        self._prev_btn.setAccessibleName("Previous page")
+        self._prev_btn.setToolTip("Previous page (Alt+Left)")
+        self._prev_btn.setShortcut(QtGui.QKeySequence("Alt+Left"))
         self._next_btn = QtWidgets.QToolButton(self)
         self._next_btn.setProperty("button_role", "toolbar")
         self._next_btn.setText("▶")
+        self._next_btn.setAccessibleName("Next page")
+        self._next_btn.setToolTip("Next page (Alt+Right)")
+        self._next_btn.setShortcut(QtGui.QKeySequence("Alt+Right"))
 
         self._page_label = QtWidgets.QLabel("Page", self)
         self._page_label.setProperty("text_role", "form_label")
         self._page_edit = QtWidgets.QLineEdit(self)
+        self._page_label.setBuddy(self._page_edit)
+        self._page_edit.setAccessibleName("Page number")
+        self._page_edit.setToolTip("Enter a page number and press Enter")
         self._page_edit.setFixedWidth(64)
         self._page_edit.setMinimumHeight(34)
         self._page_total = QtWidgets.QLabel("/ 0", self)
@@ -298,6 +132,8 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._go_btn.setMinimumHeight(34)
 
         self._fit_combo = QtWidgets.QComboBox(self)
+        self._fit_combo.setAccessibleName("Page fit mode")
+        self._fit_combo.setToolTip("Choose how pages fit in the preview")
         self._fit_combo.addItems(["Fit Width", "Fit Page", "Manual"])
         self._fit_combo.setCurrentText("Fit Width")
         self._fit_combo.setMinimumHeight(32)
@@ -305,12 +141,17 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._zoom_out = QtWidgets.QToolButton(self)
         self._zoom_out.setProperty("button_role", "toolbar")
         self._zoom_out.setText("−")
+        self._zoom_out.setAccessibleName("Zoom out")
+        self._zoom_out.setToolTip("Zoom out")
         self._zoom_in = QtWidgets.QToolButton(self)
         self._zoom_in.setProperty("button_role", "toolbar")
         self._zoom_in.setText("+")
+        self._zoom_in.setAccessibleName("Zoom in")
+        self._zoom_in.setToolTip("Zoom in")
         self._zoom_pct = QtWidgets.QToolButton(self)
         self._zoom_pct.setProperty("button_role", "toolbar")
         self._zoom_pct.setText("100%")
+        self._zoom_pct.setAccessibleName("Reset zoom to 100 percent")
         self._zoom_pct.setAutoRaise(True)
         self._zoom_pct.setToolTip("Reset zoom to 100%")
 
@@ -332,7 +173,11 @@ class PdfViewerWidget(QtWidgets.QWidget):
 
         self._view.setPageMode(QPdfView.PageMode.MultiPage)
         self._view.setDocumentMargins(QtCore.QMargins(12, 12, 12, 12))
-        scrollbar_as_needed = int(getattr(QtCore.Qt, "ScrollBarAsNeeded", 0))
+        scrollbar_as_needed = getattr(
+            QtCore.Qt,
+            "ScrollBarAsNeeded",
+            cast(Any, QtCore.Qt).ScrollBarPolicy.ScrollBarAsNeeded,
+        )
         self._view.setHorizontalScrollBarPolicy(scrollbar_as_needed)
         self._view.setVerticalScrollBarPolicy(scrollbar_as_needed)
         self.set_fit_width()
@@ -348,23 +193,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
         )
 
     def _wire(self) -> None:
-        """Wire toolbar controls to viewer behavior.
-
-        Summary:
-            Connect button clicks and navigator signals to internal handlers.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Connects Qt signals.
-        Error handling:
-            Uses safe wrappers for navigation and ignores invalid input.
-        Ties to other methods:
-            Called by __init__.
-        Why this exists:
-            Keeping signal wiring separate reduces the cognitive load of _build.
-        """
+        """Wire toolbar controls to viewer behavior."""
         self._prev_btn.clicked.connect(lambda: self._go_to_page(self._current_page - 1))
         self._next_btn.clicked.connect(lambda: self._go_to_page(self._current_page + 1))
         self._go_btn.clicked.connect(self._on_go)
@@ -382,65 +211,16 @@ class PdfViewerWidget(QtWidgets.QWidget):
             self._view.zoomModeChanged.connect(self._on_zoom_mode_changed)
 
     def _emit_state(self) -> None:
-        """Emit a structured state snapshot.
-
-        Summary:
-            Notify listeners whenever page index or page count changes.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Emits the state_changed Qt signal.
-        Error handling:
-            None.
-        Ties to other methods:
-            Called by load_pdf and navigation handlers.
-        Why this exists:
-            The main window needs page state without directly reading widget internals.
-        """
+        """Emit a structured state snapshot."""
         self.state_changed.emit(PdfViewerState(self._current_page, self._page_count))
 
     def _set_page_text(self) -> None:
-        """Refresh the page UI text fields.
-
-        Summary:
-            Update the page edit and total label to reflect current state.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates line edit and label widgets.
-        Error handling:
-            No-ops when widgets are missing.
-        Ties to other methods:
-            Called after navigation and load.
-        Why this exists:
-            Keeping UI updates centralized avoids subtle inconsistencies during navigation.
-        """
+        """Refresh the page UI text fields."""
         self._page_edit.setText(str(self._current_page + 1))
         self._page_total.setText(f"/ {self._page_count}")
 
     def _sync_page_edit_width(self) -> None:
-        """Sync the page input width to the document size.
-
-        Summary:
-            Resize the page number input so it fits the maximum page count digit length without
-            wasting horizontal space.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Updates the QLineEdit fixed width.
-        Error handling:
-            Uses conservative defaults when font metrics are unavailable.
-        Ties to other methods:
-            Called by load_pdf when the page count becomes known.
-        Why this exists:
-            A tight page input keeps the toolbar compact and reduces visual noise.
-        """
+        """Sync the page input width to the document size."""
         try:
             digits = max(1, len(str(max(0, int(self._page_count)))))
             sample = "9" * digits
@@ -453,23 +233,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             self._page_edit.setFixedWidth(44)
 
     def _go_to_page(self, page_index: int) -> None:
-        """Navigate to a specific 0-based page index.
-
-        Summary:
-            Clamp the requested page to valid bounds and update the navigator position.
-        Inputs:
-            - page_index: 0-based page index.
-        Outputs:
-            - None.
-        Side effects:
-            Updates internal page state and scrolls the QPdfView.
-        Error handling:
-            No-ops when no document is loaded.
-        Ties to other methods:
-            Used by prev/next buttons and manual page navigation.
-        Why this exists:
-            Navigation logic needs a single clamping implementation.
-        """
+        """Navigate to a specific 0-based page index."""
         if self._page_count <= 0:
             return
         page_index = max(0, min(int(page_index), self._page_count - 1))
@@ -483,23 +247,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._emit_state()
 
     def _on_go(self) -> None:
-        """Handle a user "go to page" request.
-
-        Summary:
-            Parse the page input and navigate to the requested page number.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Scrolls the QPdfView when the input is valid.
-        Error handling:
-            Restores the current page text when the input is invalid.
-        Ties to other methods:
-            Connected to the Go button and line edit returnPressed.
-        Why this exists:
-            Page jumps are useful even with continuous scrolling for large documents.
-        """
+        """Handle a user "go to page" request."""
         raw = self._page_edit.text().strip()
         if not raw.isdigit():
             self._set_page_text()
@@ -508,23 +256,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._go_to_page(page_1based - 1)
 
     def _on_fit_mode(self, mode: str) -> None:
-        """Handle fit mode selection changes.
-
-        Summary:
-            Switch between fit width, fit page, and manual zoom modes.
-        Inputs:
-            - mode: Selected mode label.
-        Outputs:
-            - None.
-        Side effects:
-            Updates QPdfView zoom mode.
-        Error handling:
-            Defaults to fit width for unknown values.
-        Ties to other methods:
-            Connected to the fit combo currentTextChanged signal.
-        Why this exists:
-            Users should be able to control the reading layout without hunting for settings.
-        """
+        """Handle fit mode selection changes."""
         if mode == "Fit Page":
             self.set_fit_page()
             return
@@ -534,88 +266,22 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self.set_fit_width()
 
     def _bump_zoom(self, delta: float) -> None:
-        """Increment or decrement the current zoom.
-
-        Summary:
-            Step the zoom factor and switch to manual zoom mode.
-        Inputs:
-            - delta: Signed zoom delta.
-        Outputs:
-            - None.
-        Side effects:
-            Updates QPdfView zoom factor.
-        Error handling:
-            Clamps zoom to a safe range.
-        Ties to other methods:
-            Connected to zoom in and zoom out buttons.
-        Why this exists:
-            Zoom stepping is the fastest way to inspect text on high DPI displays.
-        """
+        """Increment or decrement the current zoom."""
         zoom = max(0.1, min(12.0, self.zoom_factor() + float(delta)))
         self.set_manual_zoom(zoom)
 
     def _on_current_page_changed(self, page: int) -> None:
-        """Handle navigator page changes.
-
-        Summary:
-            Sync internal state and UI when the user scrolls or navigates.
-        Inputs:
-            - page: New 0-based page index.
-        Outputs:
-            - None.
-        Side effects:
-            Updates page fields and emits state.
-        Error handling:
-            None.
-        Ties to other methods:
-            Connected to QPdfPageNavigator.currentPageChanged.
-        Why this exists:
-            The toolbar must reflect scroll-based navigation as well as explicit jumps.
-        """
+        """Handle navigator page changes."""
         self._current_page = int(page)
         self._set_page_text()
         self._emit_state()
 
     def _on_zoom_changed(self, zoom: float) -> None:
-        """Handle navigator zoom changes.
-
-        Summary:
-            Update the zoom percentage UI when the view zoom changes.
-        Inputs:
-            - zoom: New zoom factor.
-        Outputs:
-            - None.
-        Side effects:
-            Updates the zoom percent button text.
-        Error handling:
-            Clamps displayed values to sensible percentages.
-        Ties to other methods:
-            Connected to QPdfPageNavigator.currentZoomChanged.
-        Why this exists:
-            Users need immediate feedback about zoom level to achieve a 100% reference view.
-        """
+        """Handle navigator zoom changes."""
         self._update_zoom_ui(zoom=float(zoom))
 
     def _on_zoom_mode_changed(self, _mode: object) -> None:
-        """Handle zoom mode changes emitted by the QPdfView.
-
-        Summary:
-            Keep the fit mode combo and zoom label synchronized with programmatic or internal view
-            changes.
-        Inputs:
-            - _mode: Qt signal payload (unused, mode is read from the view).
-        Outputs:
-            - None.
-        Side effects:
-            Updates the fit mode combo and zoom label.
-        Error handling:
-            Best-effort only; ignores Qt errors.
-        Ties to other methods:
-            Wired in _wire when QPdfView exposes zoomModeChanged.
-        Why this exists:
-            Fit zoom computations occur after layout, so syncing UI on mode changes prevents stale
-            "100%" labels that do not match the rendered PDF.
-        """
+        """Handle zoom mode changes emitted by the QPdfView."""
         try:
             self._sync_fit_combo_to_view()
             self._sync_zoom_label_later()
@@ -623,23 +289,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _set_fit_combo_value(self, value: str) -> None:
-        """Set the fit combo value without re-entering handlers.
-
-        Summary:
-            Update the fit mode combo programmatically while preventing recursive signal handling.
-        Inputs:
-            - value: Combo label value to select.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates the combo box selection.
-        Error handling:
-            No-ops when the combo is not initialized or the value is not present.
-        Ties to other methods:
-            Used by set_fit_width, set_fit_page, and set_manual_zoom.
-        Why this exists:
-            The toolbar should reflect the actual view mode after any action.
-        """
+        """Set the fit combo value without re-entering handlers."""
         try:
             if not hasattr(self, "_fit_combo"):
                 return
@@ -652,23 +302,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _sync_fit_combo_to_view(self) -> None:
-        """Synchronize the fit combo to the current QPdfView zoom mode.
-
-        Summary:
-            Map QPdfView zoom modes to the toolbar combo labels so the UI stays consistent.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates the combo box selection.
-        Error handling:
-            Best-effort only; ignores Qt errors.
-        Ties to other methods:
-            Called by _on_zoom_mode_changed and _end_resize_redraw.
-        Why this exists:
-            Resizes and programmatic changes can toggle zoom modes without user interaction.
-        """
+        """Synchronize the fit combo to the current QPdfView zoom mode."""
         try:
             mode = self._view.zoomMode()
             if mode == QPdfView.ZoomMode.FitToWidth:
@@ -682,24 +316,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _sync_zoom_label_later(self) -> None:
-        """Sync the zoom label after the event loop processes layout.
-
-        Summary:
-            Defer zoom label updates so fit-to-width/page computations have a stable viewport size.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Schedules a single-shot timer callback.
-        Error handling:
-            No-ops when no document is loaded or Qt timers are unavailable.
-        Ties to other methods:
-            Called after loading PDFs, changing fit modes, and completing debounced resizes.
-        Why this exists:
-            Fit modes can render at a zoom factor that differs from 1.0, and the label must reflect
-            the real computed zoom rather than a hard-coded default.
-        """
+        """Sync the zoom label after the event loop processes layout."""
         if self._page_count <= 0:
             return
         try:
@@ -708,47 +325,14 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _sync_zoom_label_now(self) -> None:
-        """Sync the zoom label to the current view zoom factor.
-
-        Summary:
-            Read QPdfView.zoomFactor and update the zoom percent label.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates the zoom percent toolbutton text.
-        Error handling:
-            Best-effort only; ignores Qt errors.
-        Ties to other methods:
-            Scheduled by _sync_zoom_label_later.
-        Why this exists:
-            The only reliable source of truth for "current zoom" is the view itself.
-        """
+        """Sync the zoom label to the current view zoom factor."""
         try:
             self._update_zoom_ui(zoom=float(self._view.zoomFactor()))
         except Exception:
             return
 
     def _update_zoom_ui(self, *, zoom: float | None = None) -> None:
-        """Update zoom-related toolbar UI.
-
-        Summary:
-            Keep the zoom readout consistent with the current zoom mode.
-        Inputs:
-            - zoom: Optional zoom factor; when omitted, reads the current factor from QPdfView.
-        Outputs:
-            - None.
-        Side effects:
-            Updates the zoom readout text and tooltip.
-        Error handling:
-            Best-effort only; invalid values fall back to safe defaults.
-        Ties to other methods:
-            Called by zoom mode changes, manual zoom setters, and zoom changed signals.
-        Why this exists:
-            Fit modes do not represent a stable numeric percent. Showing "100%" in a fit mode is
-            misleading and caused the perceived inconsistency when returning to 100%.
-        """
+        """Update zoom-related toolbar UI."""
         try:
             mode = self._view.zoomMode()
         except Exception:
@@ -780,45 +364,12 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._zoom_pct.setToolTip("Reset zoom to 100%")
 
     def showEvent(self, event: QtGui.QShowEvent) -> None:  # noqa: N802
-        """Handle widget show events.
-
-        Summary:
-            Trigger a deferred zoom label sync once the widget has a real size.
-        Inputs:
-            - event: Qt show event.
-        Outputs:
-            - None.
-        Side effects:
-            Schedules a zoom label update.
-        Error handling:
-            Best-effort only; ignores Qt errors.
-        Ties to other methods:
-            Uses _sync_zoom_label_later to avoid stale fit-mode zoom labels.
-        Why this exists:
-            Fit-to-width/page zoom factors are computed after layout, so syncing on show ensures the
-            percent display reflects the true rendered scale.
-        """
+        """Handle widget show events."""
         super().showEvent(event)
         self._sync_zoom_label_later()
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:  # noqa: N802
-        """Handle widget resize events.
-
-        Summary:
-            Freeze fit-to-width/page zoom during live resizing to reduce flicker.
-        Inputs:
-            - event: Qt resize event.
-        Outputs:
-            - None.
-        Side effects:
-            Switches QPdfView into manual zoom during resize and restores fit mode after.
-        Error handling:
-            Falls back to default QWidget behavior when the view cannot be updated.
-        Ties to other methods:
-            Uses _end_resize_redraw to re-enable updates after resizing settles.
-        Why this exists:
-            QtPdf can repaint aggressively during resizes; debouncing reduces visible flashing.
-        """
+        """Handle widget resize events."""
         super().resizeEvent(event)
         self._sync_resize_overlay_geometry()
         self._begin_resize_freeze()
@@ -826,23 +377,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
         self._resize_debounce.start(120)
 
     def _end_resize_redraw(self) -> None:
-        """Re-enable redraw after debounced resize.
-
-        Summary:
-            Restore the previous fit zoom mode and trigger a single repaint.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Restores the saved QPdfView zoom mode when one was frozen.
-        Error handling:
-            Best-effort only; ignores Qt errors.
-        Ties to other methods:
-            Scheduled by resizeEvent via _resize_debounce.
-        Why this exists:
-            Avoids repeated fit computations that present as flicker to the user.
-        """
+        """Re-enable redraw after debounced resize."""
         try:
             if self._resize_frozen_zoom_mode is not None:
                 self._view.setZoomMode(self._resize_frozen_zoom_mode)
@@ -856,24 +391,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _begin_resize_freeze(self) -> None:
-        """Freeze fit-to-width/page zoom during live resizing.
-
-        Summary:
-            Temporarily switch QPdfView from a fit mode into manual zoom so repeated size changes do
-            not trigger expensive re-layout and re-render cycles that look like flicker.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Updates the QPdfView zoom mode when it is currently a fit mode.
-        Error handling:
-            No-ops when the view is not in a fit mode or zoom state cannot be queried.
-        Ties to other methods:
-            Called by resizeEvent; restored by _end_resize_redraw.
-        Why this exists:
-            Fit zoom modes are correct at rest, but they are visually unstable during live resizing.
-        """
+        """Freeze fit-to-width/page zoom during live resizing."""
         try:
             if self._page_count <= 0:
                 return
@@ -889,23 +407,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _sync_resize_overlay_geometry(self) -> None:
-        """Keep the resize overlay positioned over the PDF view.
-
-        Summary:
-            Update the overlay geometry so it covers the QPdfView during resizes.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates overlay widget geometry.
-        Error handling:
-            No-ops when the overlay is not available.
-        Ties to other methods:
-            Called by resizeEvent before overlay capture.
-        Why this exists:
-            The overlay prevents flicker by holding a stable frame while QtPdf reflows pages.
-        """
+        """Keep the resize overlay positioned over the PDF view."""
         try:
             if self._resize_overlay is None:
                 return
@@ -914,24 +416,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _begin_resize_overlay(self) -> None:
-        """Show a static overlay during live resizes.
-
-        Summary:
-            Capture the current rendered PDF view into a pixmap and display it over the viewer
-            while disabling live updates to prevent visible flicker.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Shows an overlay label and temporarily disables updates on the QPdfView.
-        Error handling:
-            Best-effort only; if capture fails, resizing continues with default behavior.
-        Ties to other methods:
-            Started from resizeEvent; stopped by _end_resize_overlay.
-        Why this exists:
-            QtPdf can clear and repaint repeatedly during resizes, which reads as flashing.
-        """
+        """Show a static overlay during live resizes."""
         if self._page_count <= 0:
             return
         if self._resize_overlay is None:
@@ -949,25 +434,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _end_resize_overlay(self) -> None:
-        """Hide the resize overlay and re-enable view updates.
-
-        Summary:
-            Restore normal PDF rendering after the resize debounce timer fires, leaving the overlay
-            in place until the next event loop tick so the view can repaint before the snapshot is
-            removed.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Re-enables updates on QPdfView and schedules overlay removal.
-        Error handling:
-            Best-effort only; ignores Qt errors.
-        Ties to other methods:
-            Called by _end_resize_redraw after restoring fit zoom.
-        Why this exists:
-            Resuming normal rendering only once per resize reduces flashing.
-        """
+        """Hide the resize overlay and re-enable view updates."""
         try:
             self._view.setUpdatesEnabled(True)
             QtCore.QTimer.singleShot(0, self._hide_resize_overlay)
@@ -975,23 +442,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _hide_resize_overlay(self) -> None:
-        """Remove the resize overlay after the view has had a chance to repaint.
-
-        Summary:
-            Hide the snapshot overlay and clear its pixmap after enabling updates.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Hides the overlay label.
-        Error handling:
-            Best-effort only; ignores Qt errors.
-        Ties to other methods:
-            Scheduled by _end_resize_overlay using a single-shot timer.
-        Why this exists:
-            Removing the overlay immediately can reveal an intermediate blank frame during repaint.
-        """
+        """Remove the resize overlay after the view has had a chance to repaint."""
         try:
             if self._resize_overlay is None:
                 return
@@ -1001,23 +452,7 @@ class PdfViewerWidget(QtWidgets.QWidget):
             return
 
     def _configure_viewport_for_resizes(self) -> None:
-        """Configure the PDF view to avoid flashing during repaints.
-
-        Summary:
-            Set widget attributes to reduce background clears that can appear as flicker.
-        Inputs:
-            - None.
-        Outputs:
-            - None.
-        Side effects:
-            Mutates widget attributes on QPdfView and its viewport.
-        Error handling:
-            No-ops when attributes cannot be set on a given platform.
-        Ties to other methods:
-            Called by _build after the view is configured.
-        Why this exists:
-            The default background clearing behavior can cause white flashes during resizing.
-        """
+        """Configure the PDF view to avoid flashing during repaints."""
         try:
             self._view.setAttribute(QtCore.Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
             self._view.setAttribute(QtCore.Qt.WidgetAttribute.WA_NoSystemBackground, True)

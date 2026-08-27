@@ -1,4 +1,4 @@
-"""Enforce low-noise dependency management and lockfile consistency."""
+"""Enforce low-noise dependency management and direct-pin consistency."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ import re
 import sys
 import tomllib
 from pathlib import Path
+
+EXACT_PIN_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*==[^=\s]+$")
 
 
 def _repo_root() -> Path:
@@ -37,7 +39,14 @@ def _read_raw_non_comment_lines(path: Path) -> list[str]:
 
 def _assert_equal(label: str, actual: list[str], expected: list[str], errors: list[str]) -> None:
     if actual != expected:
-        errors.append(f"{label} mismatch.\n" f"  actual:   {actual}\n" f"  expected: {expected}")
+        errors.append(f"{label} mismatch.\n  actual:   {actual}\n  expected: {expected}")
+
+
+def _validate_exact_pins(label: str, dependencies: list[object], errors: list[str]) -> None:
+    """Require reproducible direct dependency declarations in every install group."""
+    for dependency in dependencies:
+        if not isinstance(dependency, str) or not EXACT_PIN_PATTERN.fullmatch(dependency):
+            errors.append(f"{label} dependency must use an exact == pin: {dependency!r}")
 
 
 def _validate_requirements(pyproject: dict[str, object], root: Path, errors: list[str]) -> None:
@@ -47,9 +56,8 @@ def _validate_requirements(pyproject: dict[str, object], root: Path, errors: lis
         return
 
     runtime_requirements = _read_requirements(root / "requirements.txt")
-    runtime_lock = _read_requirements(root / "requirements.lock")
     dev_requirements = _read_raw_non_comment_lines(root / "requirements-dev.txt")
-    dev_lock = _read_requirements(root / "requirements-dev.lock")
+    bundle_requirements = _read_requirements(root / "requirements-bundle.txt")
 
     project_runtime = project.get("dependencies", [])
     if not isinstance(project_runtime, list):
@@ -66,16 +74,30 @@ def _validate_requirements(pyproject: dict[str, object], root: Path, errors: lis
         errors.append("pyproject.toml project.optional-dependencies.dev must be a list")
         return
 
+    project_desktop = optional.get("desktop", [])
+    project_bundle = optional.get("bundle", [])
+    if not isinstance(project_desktop, list) or not isinstance(project_bundle, list):
+        errors.append("pyproject desktop and bundle optional-dependencies must be lists")
+        return
+
+    _validate_exact_pins("runtime", project_runtime, errors)
+    for group_name, dependencies in optional.items():
+        if not isinstance(dependencies, list):
+            errors.append(f"pyproject optional-dependencies.{group_name} must be a list")
+            continue
+        _validate_exact_pins(f"optional group {group_name}", dependencies, errors)
+
+    missing_bundle_runtime = [dep for dep in project_desktop if dep not in project_bundle]
+    if missing_bundle_runtime:
+        errors.append(
+            "bundle extra must include every desktop runtime dependency; missing: "
+            f"{missing_bundle_runtime}"
+        )
+
     _assert_equal(
         "requirements.txt vs pyproject project.dependencies",
         runtime_requirements,
         project_runtime,
-        errors,
-    )
-    _assert_equal(
-        "requirements.lock vs requirements.txt",
-        runtime_lock,
-        runtime_requirements,
         errors,
     )
     _assert_equal(
@@ -85,11 +107,24 @@ def _validate_requirements(pyproject: dict[str, object], root: Path, errors: lis
         errors,
     )
     _assert_equal(
-        "requirements-dev.lock vs flattened runtime+dev requirements",
-        dev_lock,
-        [*runtime_requirements, *project_dev],
+        "requirements-bundle.txt vs pyproject bundle optional-dependencies",
+        bundle_requirements,
+        project_bundle,
         errors,
     )
+
+
+def _validate_build_system(pyproject: dict[str, object], errors: list[str]) -> None:
+    """Require the isolated package builder to use exact, reviewable pins."""
+    build_system = pyproject.get("build-system")
+    if not isinstance(build_system, dict):
+        errors.append("pyproject.toml is missing [build-system]")
+        return
+    build_requirements = build_system.get("requires")
+    if not isinstance(build_requirements, list):
+        errors.append("pyproject build-system.requires must be a list")
+        return
+    _validate_exact_pins("build system", build_requirements, errors)
 
 
 def _validate_dependabot(root: Path, errors: list[str]) -> None:
@@ -97,7 +132,7 @@ def _validate_dependabot(root: Path, errors: list[str]) -> None:
     required_snippets = (
         "open-pull-requests-limit: 1",
         'interval: "monthly"',
-        'dependency-name: "pypdf"',
+        'dependency-type: "direct"',
         'patterns:\n          - "*"',
     )
     for snippet in required_snippets:
@@ -106,6 +141,8 @@ def _validate_dependabot(root: Path, errors: list[str]) -> None:
 
     if len(re.findall(r'package-ecosystem:\s*"pip"', text)) != 1:
         errors.append(".github/dependabot.yml must define exactly one pip update block")
+    if 'dependency-name: "pypdf"' in text:
+        errors.append(".github/dependabot.yml must not restrict pip updates to pypdf only")
 
 
 def main() -> int:
@@ -113,6 +150,7 @@ def main() -> int:
     pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     errors: list[str] = []
 
+    _validate_build_system(pyproject, errors)
     _validate_requirements(pyproject, root, errors)
     _validate_dependabot(root, errors)
 
@@ -121,7 +159,7 @@ def main() -> int:
             print(f"dependency-policy failed: {error}", file=sys.stderr)
         return 1
 
-    print("dependency-policy passed: lockfiles, pyproject, and Dependabot policy are aligned.")
+    print("dependency-policy passed: requirement pins, pyproject, and Dependabot are aligned.")
     return 0
 
 
